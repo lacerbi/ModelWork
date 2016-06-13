@@ -14,7 +14,11 @@ if nargin < 1
     return;
 end
 
-if ~iscell(dataid); dataid = {dataid}; end
+if ~iscell(dataid)  % Cellify
+    temp = dataid;
+    dataid = [];
+    for i = 1:size(temp,1); dataid{i} = temp(i,:); end
+end
 if ~iscell(cnd); cnd = {cnd}; end
 
 if length(dataid) == 1 && size(model, 1) == 1 && length(cnd) == 1

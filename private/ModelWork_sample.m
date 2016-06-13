@@ -90,6 +90,38 @@ writelog(fout,'start',options,nsamples,thin,options.maxstoredsamples);
 
             logpriors = output.logpriors;
             funccount = output.funccount;
+            
+        case {'eiss','eissample'}   % Ensemble inversion slice sampling
+            
+            samplepdf = @(thx) LogPosterior(thx,1,[],0);
+            logpriorpdf = @(thx) LogPosterior(thx,1,[],1);
+            if ~isfield(sampling,'burnin') || isempty(sampling.burnin); sampling.burnin = 2*nsamples; end
+            smploptions.Burnin = sampling.burnin;
+            smploptions.Thin = thin;
+            if strcmpi(displ,'iter'); smploptions.Display = 'notify';
+            else smploptions.Display = 'off'; end
+            samplefilename = [options.fullfilename(1:end-4) '_sample.tmp'];
+            smploptions.LoadFile = samplefilename;
+            smploptions.SaveFile = samplefilename;
+            % Save every ~1h30, jitter to avoid simultaneous save from all processes
+            smploptions.SaveTime = (0.9 + 0.2*rand())*options.savetime;
+            K = 2*(nvars+1);
+            
+            % Randomize starting points according to weights
+            if ~isempty(weights)
+                idx = mnrnd_private(repmat(weights(:)',[K,1]));
+                x0 = x0(idx,:);
+            end
+            
+            [samples,loglikes,exitflag,output,fvals] = ...
+                eissample({logpriorpdf,samplepdf},x0,nsamples,K,mp.bounds.SCALE,LB,UB,smploptions);
+
+            logpriors = fvals{1};
+            funccount = output.funccount;
+            sampling.diag.tau = output.tau;
+            sampling.diag.R = output.R;
+            sampling.diag.neff = output.Neff;
+            
 
 %             case 'dramsample'
 %                 dram.model.ssfun = @(x,d) 2*LogPosterior(x);

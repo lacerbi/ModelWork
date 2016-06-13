@@ -140,10 +140,9 @@ switch lower(method(1:3))
 
     case {'sam','smp'}
         % Starting points for sampling
-        sample0 = []; loglikes = []; weigths = [];
+        sample0 = []; loglikes = []; weights = [];
         if ~isempty(mfit.sampling) && ~isempty(mfit.sampling.samples)
             sample0 = mfit.sampling.samples;
-            weights = ones(size(sample0,1),1);
         elseif ~isempty(mfit.optimization) && ~isempty(mfit.optimization.output)
             for k = 1:numel(mfit.optimization.output)
                 sample0 = [sample0; mfit.optimization.output{k}.x];
