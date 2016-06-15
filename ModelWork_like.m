@@ -23,6 +23,7 @@ if nargin < 8 || isempty(randomizeflag); randomizeflag = 0; end
 INFPENALTY = -log(1e-6);
 
 theta = theta(:)';
+extras = [];
 
 % Update the number of function calls
 mp.funcalls = mp.funcalls + 1;

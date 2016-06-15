@@ -1,4 +1,4 @@
-function [mbag,modelsummary] = ModelWork_collectFits(project,name,data)
+function [mbag,modelsummary] = ModelWork_collectFits(project,name,data,mbag)
 % MODELWORK_COLLECTFITS Collect model fits in a single structure.
 %
 %   MBAG = MODELWORK_COLLECTFITS(PROJECT) collect all model fits in this
@@ -7,6 +7,11 @@ function [mbag,modelsummary] = ModelWork_collectFits(project,name,data)
 %   MBAG = MODELWORK_COLLECTFITS(PROJECT,NAME) also recursively load model
 %   fits from directories that match pattern NAME. Use '*' to recursively
 %   get model fits from all subdirectories of the current directory.
+%
+%   MBAG = MODELWORK_COLLECTFITS(PROJECT,NAME,DATA) loads data file DATA.
+%
+%   MBAG = MODELWORK_COLLECTFITS(PROJECT,NAME,DATA,MBAG) appends model
+%   fits to existing model bag MBAG.
 %
 %   [MBAG,MODELSUMMARY] = MODELWORK_COLLECTFITS(...) computes a model
 %   summary struct.
@@ -17,8 +22,7 @@ function [mbag,modelsummary] = ModelWork_collectFits(project,name,data)
 
 if nargin < 2 || isempty(name); name = []; end
 if nargin < 3 || isempty(data); data = load([project '_data.mat']); end
-
-mbag = [];
+if nargin < 4; mbag = []; end
 
 % Loop over mat files in the directory
 if name(1) == '*'
