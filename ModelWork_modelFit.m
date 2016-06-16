@@ -151,6 +151,10 @@ switch lower(method(1:3))
             weights = exp(loglikes - max(loglikes)); % Weights assigned to starting points
         end
         
+        % If passing an external fit, use samples as starting points but
+        % otherwise sample from scratch
+        if strcmpi(options.mbag,'used'); mfit.sampling = []; end
+        
         [sampling,smplexitflag,smploutput] = ...
             ModelWork_sample(mfit,mp,infostruct,fout,datalikeFun,setupModelFun,logpriorFun,sample0,weights,firstSetting,options);    
         mfit.sampling = sampling;

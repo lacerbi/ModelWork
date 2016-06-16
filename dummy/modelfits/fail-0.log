@@ -1,0 +1,25 @@
+16-Jun-2016 16:38:14: Job ID #0 failed.
+ERROR in Model 1, DS1, cnd [1], replica 1.
+File 'D:\Documenti\GitHub\ModelWork\dummy\Dummy_setupModel.m', function 'initModel', line 110.
+
+Unsupported lapse model.
+16-Jun-2016 16:38:53: Job ID #0 failed.
+ERROR in Model 1, DS1, cnd [1], replica 1.
+File 'D:\Documenti\GitHub\ModelWork\dummy\Dummy_setupModel.m', function 'initModel', line 152.
+MATLAB:nonExistentField
+Reference to non-existent field 'samplingtemperature'.
+16-Jun-2016 16:39:19: Job ID #0 failed.
+ERROR in Model 1, DS1, cnd [1], replica 1.
+File 'D:\Documenti\GitHub\VestBMS\VestBMS_ModelWork\VestBMS_datalike.m', function 'VestBMS_datalike', line 34.
+MATLAB:nonStrucReference
+Attempt to reference field of non-structure array.
+16-Jun-2016 16:40:28: Job ID #0 failed.
+ERROR in Model 1, DS1, cnd [1], replica 1.
+File 'D:\Documenti\Dropbox\Postdoc\fminbayes\matlab\bps.m', function 'acqPortfolio', line 1402.
+MATLAB:erfc:notFullReal
+Input must be real and full.
+16-Jun-2016 17:31:40: Job ID #0 failed.
+ERROR in Model 1, DS1, cnd [1], replica 1.
+File 'D:\Documenti\GitHub\eissample\diag\samplediagnose.m', function 'samplediagnose', line 59.
+MATLAB:dimagree
+Matrix dimensions must agree.

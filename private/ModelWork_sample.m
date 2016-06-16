@@ -107,6 +107,11 @@ writelog(fout,'start',options,nsamples,thin,options.maxstoredsamples);
             smploptions.SaveTime = (0.9 + 0.2*rand())*options.savetime;
             K = 2*(nvars+1);
             
+            % Additional options
+            if isfield(options,'FitGMM')
+                smploptions.FitGMM = options.FitGMM;
+            end
+                        
             % Randomize starting points according to weights
             if ~isempty(weights)
                 idx = mnrnd_private(repmat(weights(:)',[K,1]));

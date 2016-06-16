@@ -31,6 +31,7 @@ optlist(end+1) = struct('name', 'display', 'type', 'string', 'default', 'all');
 optlist(end+1) = struct('name', 'debug', 'type', 'flag', 'default', 0);
 optlist(end+1) = struct('name', 'seed', 'type', 'matrix', 'default', []);        
 optlist(end+1) = struct('name', 'outfile', 'type', 'string', 'default', []);
+optlist(end+1) = struct('name', 'mbag', 'type', 'string', 'default', []);
 optlist(end+1) = struct('name', 'nsamples', 'type', 'matrix', 'default', 0);
 optlist(end+1) = struct('name', 'maxstoredsamples', 'type', 'matrix', 'default', 5000);
 optlist(end+1) = struct('name', 'nburnin', 'type', 'matrix', 'default', []);

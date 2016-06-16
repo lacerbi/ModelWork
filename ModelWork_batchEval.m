@@ -176,7 +176,16 @@ end
 clear functions; % Clear persistent variables
 
 try
-    if options.continueflag && ~isempty(mbag)
+    
+    if ~isempty(options.mbag)
+        mfit = ModelBag_get(options.mbag,job.dataid,job.model,job.cnd);
+        % Get rid of MBAG in OPTIONS, but keep track if it was used
+        if ~isempty(mfit)
+            options.mbag = 'used';
+        else
+            options.mbag = [];
+        end
+    elseif options.continueflag && ~isempty(mbag)
         mfit = ModelBag_get(mbag,job.dataid,job.model,job.cnd);
     else
         mfit = [];
