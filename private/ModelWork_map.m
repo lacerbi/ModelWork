@@ -46,6 +46,14 @@ optoptions.OptimOptions = {[], localoptions, psoptions, localoptions};
 optoptions.FvalScale = 1;
 optoptions.RescaleVars = 'off';
 optoptions.Method = {'feval',options.optimizationmethod,'patternsearch',options.optimizationmethod};
+
+% Save information
+optfilename = [options.fullfilename(1:end-4) '_opt.tmp'];
+optoptions.LoadFile = optfilename;
+optoptions.SaveFile = optfilename;
+% Save every ~1h30, jitter to avoid simultaneous save from all processes
+optoptions.SaveTime = (0.9 + 0.2*rand())*options.savetime;
+
 optoptions.OutputFcn = @(x,optimValues,state) outputFcn(x,optimValues,state,fout,options.modelstring,options.dataidstring,options.cnd,options.replica,firstSetting);
 if options.nstarts == 0
     nstarts = 1;
