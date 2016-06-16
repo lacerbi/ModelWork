@@ -56,7 +56,7 @@ samplingflag = ~isempty(mfit.sampling) && ...
     isfield(mfit.sampling,'samples') && size(mfit.sampling.samples,1) > 0;
 
 loocvflag = samplingflag && ...
-    ( size(mfit.sampling.loglikes, 2) > 1 || options.recomputeloo );
+    ( size(mfit.sampling.logliks, 2) > 1 || options.recomputeloo );
 
 % Minus log likelihood function handle
 nllpdf = @(x,mp,logpriorflag,randomizeflag) ModelWork_like(project,mfit.X,mp,mfit.infostruct,x,logpriorflag,0,randomizeflag);
@@ -73,18 +73,20 @@ if samplingflag
     
     % Compute sampled chains summary statistics
     if ~isfield(mfit, 'sumstats') || isempty(mfit.sumstats)
+        logliks = sum(sampling.logliks,2);
+        lz = max(logliks);
         sampling.sumstats.smplmean1 = nanmean(sampling.samples, 1);
-        sampling.sumstats.loglikesmean1 = nanmean(sampling.loglikes, 1);
-        sampling.sumstats.loglikesmean1exp = nanmean(exp(sampling.loglikes), 1);
-        sampling.sumstats.loglikessqsum1 = nansum(sampling.loglikes.^2, 1);
-        sampling.sumstats.n = sum(~isnan(sampling.loglikes), 1);
+        sampling.sumstats.loglikesmean1 = nanmean(logliks, 1);
+        sampling.sumstats.loglikesmean1exp = exp(lz)*nanmean(exp(logliks-lz), 1);
+        sampling.sumstats.loglikessqsum1 = nansum(logliks.^2, 1);
+        sampling.sumstats.n = sum(~isnan(logliks), 1);
     end
     
     % Check if log prior is present
     if isempty(sampling.logpriors); logpriors = 0; else logpriors = sampling.logpriors; end
     
     % Update MAP if sampling found a better log likelihood value
-    logpost = sum(sampling.loglikes, 2) + logpriors;
+    logpost = sum(sampling.logliks, 2) + logpriors;
     [maxlogpost,idx] = max(logpost,[],1);
     if maxlogpost > mfit.metrics.maploglike
         mfit.maptheta = sampling.samples(idx,:); 
@@ -134,21 +136,21 @@ if samplingflag
     % Compute PSIS-LOO
     if loocvflag
         % If needed, recompute the per-trial log likelihood
-        if size(sampling.loglikes,2) == 1
+        if size(sampling.logliks,2) == 1
             loocvfun = @(th_) ModelWork_like(project,mfit.X,mfit.mp,mfit.infostruct,th_,0,1,0);
-            loglikes(1,:) = loocvfun(sampling.samples(1,:));
-            if size(loglikes,2) > 1
-                loglikes = repmat(loglikes, [size(sampling.samples,1),1]);        
+            logliks(1,:) = loocvfun(sampling.samples(1,:));
+            if size(logliks,2) > 1
+                logliks = repmat(logliks, [size(sampling.samples,1),1]);        
                 for iSamp = 2:size(sampling.samples,1)
-                    loglikes(iSamp,:) = loocvfun(sampling.samples(iSamp,:));
+                    logliks(iSamp,:) = loocvfun(sampling.samples(iSamp,:));
                 end
-                sampling.loglikes = loglikes;
+                sampling.logliks = logliks;
             end
         end
         
         % Compute PSIS-LOO CV score if trial log-likelihoods are available
-        if size(sampling.loglikes,2) > 1
-            [loo,loos,ks] = psisloo(sampling.loglikes);
+        if size(sampling.logliks,2) > 1
+            [loo,loos,ks] = psisloo(sampling.logliks);
             mfit.metrics.loocv = loo;        
             sampling.sumstats.loos = loos;
             sampling.sumstats.ks = ks;
@@ -156,7 +158,7 @@ if samplingflag
     end    
 
     % Do not keep full log data table
-    sampling.loglikes = sum(sampling.loglikes, 2);
+    sampling.logliks = sum(sampling.logliks, 2);
 
     % Thin data if samples are more than allowed number of stored samples
     if size(sampling.samples, 1) > options.maxstoredsamples
@@ -172,7 +174,7 @@ if samplingflag
             chainsmpl = sampling.samples(idx, :);
             newsmpl(idx_thin, :) = chainsmpl(thin, :);
 
-            chainloglikes = sampling.loglikes(idx, :);
+            chainloglikes = sampling.logliks(idx, :);
             newloglikes(idx_thin, :) = chainloglikes(thin, :);
 
             if ~isempty(sampling.logpriors)
@@ -182,7 +184,7 @@ if samplingflag
         end
 
         sampling.samples = newsmpl;
-        sampling.loglikes = newloglikes;
+        sampling.logliks = newloglikes;
         if ~isempty(sampling.logpriors); sampling.logpriors = newlogpriors; end
     end
     

@@ -44,7 +44,7 @@ switch lower(command)
         infostruct = varargin{4};
         
         modelstruct.X = varargin{1}.X;                    
-        modelstruct.nData = 0;
+        modelstruct.nData = size(modelstruct.X,1);
         
     %----------------------------------------------------------------------
     % DATASET FLAGS: Datasets keep/remove trials

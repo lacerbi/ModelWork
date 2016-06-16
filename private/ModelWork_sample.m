@@ -9,6 +9,7 @@ RLB = mp.bounds.RLB; RUB = mp.bounds.RUB;
 nvars = size(LB,2);
 
 funccount = 0;
+logliks = [];
 
 if ~isempty(fout); displ = 'iter'; else displ = 'off'; end
 
@@ -18,7 +19,8 @@ if isfield(mfit,'sampling') && ~isempty(mfit.sampling)
 else        
     % Data-dependent sampling information
     sampling.samples = [];
-    sampling.loglikes = [];
+    % sampling.logpost = [];
+    sampling.logliks = [];
     sampling.logpriors = [];
     sampling.nchains = 1;
     sampling.funccount = 0;
@@ -28,7 +30,7 @@ end
 
 % Check that all observables have the same length
 len1 = size(sampling.samples,1);
-assert((size(sampling.loglikes,1) == len1) && (size(sampling.logpriors,1) == len1 || isempty(sampling.logpriors)), ...
+assert((size(sampling.logliks,1) == len1) && (size(sampling.logpriors,1) == len1 || isempty(sampling.logpriors)), ...
     'Stored samples and log likelihoods/priors do not match in size.');
 
 % Compute thinning based on requested samples and storage capacity
@@ -86,7 +88,7 @@ writelog(fout,'start',options,nsamples,thin,options.maxstoredsamples);
                 x0 = x0(idx,:);
             end
 
-            [samples,loglikes,exitflag,output] = adss(samplepdf,x0,K,nsamples,mp.bounds.SCALE,LB,UB,smploptions);
+            [samples,logpost,exitflag,output] = adss(samplepdf,x0,K,nsamples,mp.bounds.SCALE,LB,UB,smploptions);
 
             logpriors = output.logpriors;
             funccount = output.funccount;
@@ -118,15 +120,15 @@ writelog(fout,'start',options,nsamples,thin,options.maxstoredsamples);
                 x0 = x0(idx,:);
             end
             
-            [samples,loglikes,exitflag,output,fvals] = ...
+            [samples,logpost,exitflag,output,fvals] = ...
                 eissample({logpriorpdf,samplepdf},x0,nsamples,K,mp.bounds.SCALE,LB,UB,smploptions);
 
             logpriors = fvals{1};
+            logliks = fvals{2};
             funccount = output.funccount;
             sampling.diag.tau = output.tau;
             sampling.diag.R = output.R;
             sampling.diag.neff = output.Neff;
-            
 
 %             case 'dramsample'
 %                 dram.model.ssfun = @(x,d) 2*LogPosterior(x);
@@ -192,20 +194,24 @@ writelog(fout,'start',options,nsamples,thin,options.maxstoredsamples);
 
     % Check that returned observables match in length
     len2 = size(samples,1);
-    assert((size(loglikes,1) == len2) && (size(logpriors,1) == len2 || isempty(logpriors)), ...
+    assert((size(logliks,1) == len2) && (size(logpriors,1) == len2 || isempty(logpriors)), ...
         'Computed samples and log likelihoods/priors do not match in size.');
 
     % Concatenate samples to existing chain
     n1 = sampling.nsamplestot;
     n2 = options.nsamples;
     nmax = options.maxstoredsamples;
+    
+    % Forget trial-by-trial log likelihoods if adding to existing chain
+    if ~isempty(sampling.samples); logliks = sum(logliks,2); end
 
     [sampling.samples,nc] = concatchains(sampling.samples,n1,samples,n2,nmax);
-    sampling.loglikes = concatchains(sampling.loglikes,n1,loglikes,n2,nmax);
+    % sampling.logpost = concatchains(sampling.logpost,n1,logpost,n2,nmax);
+    sampling.logliks = concatchains(sampling.logliks,n1,logliks,n2,nmax);
     sampling.logpriors = concatchains(sampling.logpriors,n1,logpriors,n2,nmax);
     sampling.nsamplestot = nc;
     sampling.funccount = sampling.funccount + funccount;
-
+    
 %catch err
 %    
 %    writelog(fout,'error',options,err.message);
@@ -226,14 +232,14 @@ return;
     
 
     %----------------------------------------------------------------------
-    function LL = LogPosterior(theta,trialloglikesflag,precision,doprior)
+    function LL = LogPosterior(theta,trialloglikesflag,precision,prioronly)
     % LOGPOSTERIOR Unnormalized log posterior of the parameters.
 
         persistent oldtheta;
     
         if nargin < 2; trialloglikesflag = 0; end
         if nargin < 3; precision = []; end
-        if nargin < 4; doprior = 0; end
+        if nargin < 4; prioronly = 0; end
                 
         theta = theta(:)';
         
@@ -264,7 +270,7 @@ return;
         end
         
         % Output is either log prior or log likelihood
-        if doprior
+        if prioronly
             LL = logpriorFun(mp,infostruct);
         else
             [loglike,extras] = datalikeFun(mfit.X,mp,infostruct);            
@@ -298,7 +304,7 @@ switch lower(state)
     case 'finish'
         funccount = varargin{1};
         fprintf(fout, '%s: Finished sampling after %d function evaluations.\n', ...
-            datestr(now), funccount);
+            datestr(now), funccount(end));
         
     case 'error'
         message = varargin{1};
