@@ -76,9 +76,13 @@ elseif ~isempty(mfit.sampling) && ~isempty(m2.sampling) && ...
     for f = 1:numel(addfields)
         sampling.(addfields{f}) = sampling.(addfields{f}) + m2.sampling.(addfields{f});
     end    
-    concatfields = {'loglikes','logpriors','samples'};
+    
+    % LOGLIKES left for retrocompatibility
+    concatfields = {'logliks','loglikes','logpriors','samples'};
     for f = 1:numel(concatfields)
-        sampling.(concatfields{f}) = [sampling.(concatfields{f}); m2.sampling.(concatfields{f})];
+        if isfield(m2.sampling, concatfields{f})
+            sampling.(concatfields{f}) = [sampling.(concatfields{f}); m2.sampling.(concatfields{f})];
+        end
     end
     
     % Summary sampling statistics

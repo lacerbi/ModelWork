@@ -52,6 +52,12 @@ end
 % SAMPLING DIAGNOSTICS AND PARAMETER ESTIMATE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+if isfield(mfit,'sampling') && ~isempty(mfit.sampling) && isfield(mfit.sampling,'loglikes')
+    mfit.sampling.logliks = mfit.sampling.loglikes;
+    mfit.sampling = rmfield(mfit.sampling,'loglikes');
+    fprintf('Found obsolete field LOGLIKES in SAMPLING. Correcting to new format.\n');
+end
+    
 samplingflag = ~isempty(mfit.sampling) && ...
     isfield(mfit.sampling,'samples') && size(mfit.sampling.samples,1) > 0;
 
