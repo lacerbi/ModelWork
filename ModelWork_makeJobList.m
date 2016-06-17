@@ -77,6 +77,7 @@ for iProc = 1:nprocs
         cnd = thisjob.cnd;
         replica = thisjob.replica;
         fprintf(fout,'%d %s %s %s %s\n',type,model,dataid,numarray2str(cnd),numarray2str(replica));
+        % fprintf('%d %s %s %s %s\n',type,model,dataid,numarray2str(cnd),numarray2str(replica));
     end
     fclose(fout);    
 end

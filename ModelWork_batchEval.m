@@ -61,6 +61,7 @@ function batchEval_one(project,data,job,starttime,options)
 
 jobdone = 0;    % Job is not done yet
 fitstep = 0;    % Step of fitting (0: none; 1: optimization; 2:sample)
+exitflag = 0;   % No problems so far
 
 % Retrieve process id
 if isempty(options.procid)

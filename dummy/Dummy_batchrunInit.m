@@ -104,5 +104,5 @@ if type > 0 && options.nsamples == 0
     options = setoptions(options,'samplingtemperature',1,1);
     options = setoptions(options,'hessianflag',0,1); % Too expensive - do not compute Hessian
 end
-        
+
 end    
