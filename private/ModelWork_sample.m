@@ -97,6 +97,8 @@ writelog(fout,'start',options,nsamples,thin,options.maxstoredsamples);
             
             samplepdf = @(thx) LogPosterior(thx,1,[],0);
             logpriorpdf = @(thx) LogPosterior(thx,1,[],1);
+            
+            if isfield(options,'burnin') && ~isempty(options.burnin); sampling.burnin = options.burnin; end
             if ~isfield(sampling,'burnin') || isempty(sampling.burnin); sampling.burnin = 2*nsamples; end
             smploptions.Burnin = sampling.burnin;
             smploptions.Thin = thin;
