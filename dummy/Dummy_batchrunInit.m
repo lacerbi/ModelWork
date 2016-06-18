@@ -38,7 +38,7 @@ MAXFUNEVALS = 500;
 NITER_OPTIMIZATION = 500;
 
 % Number of restarts for optimization
-nOptimizationRestarts = 3;
+nOptimizationRestarts = 100;
 
 if debug
     nOptimizationRestarts = 10;
@@ -49,6 +49,7 @@ end
 options = setoptions(options,'nstarts',nOptimizationRestarts,1);
 options = setoptions(options,'optfevals',MAXFUNEVALS,1);
 options = setoptions(options,'nsamples',NSAMPLES,1);
+options = setoptions(options,'savetime',0.5,1);
 
 dataids = DATAIDS;
 

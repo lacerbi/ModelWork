@@ -45,19 +45,21 @@ jobs = CreateJobsList(costFun,models,dataids,cnd,replicas);
 if verbose; fprintf('Removing completed jobs from list...\n'); end
 
 % Remove completed jobs from list
-defaultsFun = str2func([project '_defaults']);
-removejobs = false(1,numel(jobs));
-for iJob = 1:length(jobs)
-    thisjob = jobs{iJob};    
-    [options.modelstring,options.dataidstring] = ...
-        defaultsFun('strings',thisjob.model,thisjob.dataid); 
-    fileinfo = ModelWork_fileinfo(options,thisjob);    
-    if exist(fileinfo.fullfilename,'file')
-        temp = load(fileinfo.fullfilename,'jobdone');
-        if temp.jobdone; removejobs(iJob) = true; end
+if options.skipcompletedjobs
+    defaultsFun = str2func([project '_defaults']);
+    removejobs = false(1,numel(jobs));
+    for iJob = 1:length(jobs)
+        thisjob = jobs{iJob};    
+        [options.modelstring,options.dataidstring] = ...
+            defaultsFun('strings',thisjob.model,thisjob.dataid); 
+        fileinfo = ModelWork_fileinfo(options,thisjob);    
+        if exist(fileinfo.fullfilename,'file')
+            temp = load(fileinfo.fullfilename,'jobdone');
+            if temp.jobdone; removejobs(iJob) = true; end
+        end
     end
+    jobs(removejobs) = [];
 end
-jobs(removejobs) = [];
 
 % If not specified, assign one processor per job
 if isempty(nprocs) || ~isfinite(nprocs); nprocs = numel(jobs); end

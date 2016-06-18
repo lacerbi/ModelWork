@@ -65,6 +65,8 @@ vararginarray = {{'coarse',logpriorflag},{'normal',logpriorflag},{'normal',logpr
 % Run multi-start optimization
 [~,~,exitflag,output] = fminmulti(@nLogPosterior,LB,UB,nstarts,optoptions,vararginarray);
 
+output.funccount = sum(output.funcalls);
+
 % Remove coarsely evaluated points
 idx = 1:nstarts(1);
 output.x(idx,:) = [];
@@ -80,7 +82,6 @@ output.fvalmin = output.fval(end);
 x = output.xmin;
 fval = output.fvalmin;
 output = rmfield(output,'output');  % Save some memory
-output.funccount = funccount;
 
     %----------------------------------------------------------------------
     function nLL = nLogPosterior(theta,precision,logpriorflag)
