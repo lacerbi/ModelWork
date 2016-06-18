@@ -146,7 +146,7 @@ switch lower(method(1:3))
         elseif ~isempty(mfit.optimization) && ~isempty(mfit.optimization.output)
             for k = 1:numel(mfit.optimization.output)
                 sample0 = [sample0; mfit.optimization.output{k}.x];
-                loglikes = [loglikes; -mfit.optimization.output{k}.fval];
+                loglikes = [loglikes; -mfit.optimization.output{k}.fval(:)];
             end
             weights = exp(loglikes - max(loglikes)); % Weights assigned to starting points
         end
