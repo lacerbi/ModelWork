@@ -249,7 +249,30 @@ jobdone = 1;
 clear ans data mfit batchrunInitFun defaultsFun;
 if isfield(options,'scratch'); options = rmfield(options, 'scratch'); end;
 
-save(fileinfo.fullfilename);
+% MATLAB may fail while saving and leave a corrupt file -- at least avoid
+% that it ruins both the old and the new file
+if exist(fileinfo.fullfilename,'file')
+    [pathstr,name,ext] = fileparts(fileinfo.fullfilename);
+    tempfile = fullfile(pathstr,[name '.old']);
+    % tempfile = ['.' filesep pathstr filesep name filesep 'old']
+    movefile(fileinfo.fullfilename,tempfile);
+    for iAttempt = 1:10
+        temp = [];
+        try
+            save(fileinfo.fullfilename);
+            temp = load(fileinfo.fullfilename); % See if it worked
+            if ~isempty(temp); break; end
+        catch
+            % Did not work
+            writelog(fileinfo.successfile,'savefail',procid,job,options,iAttempt);
+        end
+    end
+    if isempty(temp); error('Cannot save current model, aborting.'); end
+    % Remove temporary old file
+    if exist(tempfile,'file'); delete(tempfile); end
+else
+    save(fileinfo.fullfilename);
+end
 
 writelog(fileinfo.outfile,'done',procid,job,options);
 writelog(fileinfo.successfile,'success',procid,job,options);
@@ -302,6 +325,12 @@ switch lower(state)
     case 'success'
         fprintf(fout, '%s: Job ID #%d was successfully completed.\n', datestr(now), iProc);
         fprintf(fout, '%s: Model %s, D%s, cnd %s, replica %d.\n', datestr(now), modelstring, dataidstring, numarray2str(job.cnd), job.replica);                
+
+    case 'savefail'
+        iAttempt = varargin{1};
+        fprintf(fout, '%s: Error while saving job ID #%d at completion (attempt #%d).\n', datestr(now), iProc, iAttempt);
+        fprintf(fout, '%s: Model %s, D%s, cnd %s, replica %d.\n', datestr(now), modelstring, dataidstring, numarray2str(job.cnd), job.replica);                
+        fprintf(fout, 'Trying again...\n');
         
 end     
 fclose(fout);
