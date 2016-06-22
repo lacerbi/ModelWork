@@ -9,13 +9,19 @@ for i = 1:numel(varargin)
     elseif iscell(varargin{1}) && ...
             isfield(varargin{1}{1},'X') && isfield(varargin{1}{1},'mp') && isfield(varargin{1}{1},'metrics')
         mfit = varargin{1};
-    else
+    elseif ~isempty(varargin{i})
         error('Input is not a model fit structure.');
     end
 end
 
+% Remove empty fits
+mfitnew = [];
+for i = 1:numel(mfit); if ~isempty(mfit{i}); mfitnew{end+1} = mfit{i}; end; end
+mfit = mfitnew; clear mfitnew;
+
 % Loop over models, get all parameters
 mfit = ModelWork_loadFields(project,mfit);
+
 params = [];
 for i = 1:numel(mfit)
     newp = mfit{i}.mp.params;
