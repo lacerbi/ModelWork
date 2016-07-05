@@ -54,6 +54,8 @@ optlist(end+1) = struct('name', 'nstarts', 'type', 'matrix', 'default', []);
 optlist(end+1) = struct('name', 'removefunhandles', 'type', 'string', 'default', []);
 optlist(end+1) = struct('name', 'speedtest', 'type', 'matrix', 'default', Inf);
 optlist(end+1) = struct('name', 'skipcompletedjobs', 'type', 'matrix', 'default', 1);
+optlist(end+1) = struct('name', 'recomputeloo', 'type', 'matrix', 'default', 0);
+optlist(end+1) = struct('name', 'binnedloglik', 'type', 'matrix', 'default', 0);
 
 if ~isempty(project)
     defaultsFun = str2func([project '_defaults']);

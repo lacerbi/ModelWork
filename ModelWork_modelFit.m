@@ -175,7 +175,7 @@ mfit.metrics.maploglike = -fvalmin;
 mfit.mp = mp; mfit.infostruct = infostruct;
 mfit.uptodate = 0;
 if options.hessianflag; writelog(fout,'hessian',options); end
-mfit = ModelWork_modelStats(project,mfit,options.hessianflag);
+mfit = ModelWork_modelStats(project,mfit,options.hessianflag,[],[],options);
 
 % Print sampling results
 if samplingflag

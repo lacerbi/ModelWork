@@ -139,28 +139,9 @@ if samplingflag
     mfit.metrics.waic1 = -2*lppd + 2*waic1;
     mfit.metrics.waic2 = -2*lppd + 2*waic2;
     
-    % Compute PSIS-LOO
+    % Compute PSIS-LOO cross validation score
     if loocvflag
-        % If needed, recompute the per-trial log likelihood
-        if size(sampling.logliks,2) == 1
-            loocvfun = @(th_) ModelWork_like(project,mfit.X,mfit.mp,mfit.infostruct,th_,0,1,0);
-            logliks(1,:) = loocvfun(sampling.samples(1,:));
-            if size(logliks,2) > 1
-                logliks = repmat(logliks, [size(sampling.samples,1),1]);        
-                for iSamp = 2:size(sampling.samples,1)
-                    logliks(iSamp,:) = loocvfun(sampling.samples(iSamp,:));
-                end
-                sampling.logliks = logliks;
-            end
-        end
-        
-        % Compute PSIS-LOO CV score if trial log-likelihoods are available
-        if size(sampling.logliks,2) > 1
-            [loo,loos,ks] = psisloo(sampling.logliks);
-            mfit.metrics.loocv = loo;        
-            sampling.sumstats.loos = loos;
-            sampling.sumstats.ks = ks;
-        end
+        [sampling,mfit.metrics] = psisloocv(sampling,project,mfit,options);
     end    
 
     % Do not keep full log data table
@@ -268,5 +249,45 @@ if samplingflag
 end
 
 mfit.uptodate = 1;
+
+end
+
+%--------------------------------------------------------------------------
+function [sampling,metrics] = psisloocv(sampling,project,mfit,options)
+%PSISLOOCV Compute Pareto smoothed importance sampling leave-one-out CV.
+
+metrics = mfit.metrics;
+extras = [];
+
+% If needed, recompute the per-trial log likelihood
+if size(sampling.logliks,2) == 1
+    loocvfun = @(th_) ModelWork_like(project,mfit.X,mfit.mp,mfit.infostruct,th_,0,1,0);
+    [logliks(1,:),extras] = loocvfun(sampling.samples(1,:));
+    if size(logliks,2) > 1
+        logliks = repmat(logliks, [size(sampling.samples,1),1]);        
+        for iSamp = 2:size(sampling.samples,1)
+            logliks(iSamp,:) = loocvfun(sampling.samples(iSamp,:));
+        end
+        sampling.logliks = logliks;
+    end
+end
+
+% Compute PSIS-LOO CV score if trial log-likelihoods are available
+if size(sampling.logliks,2) > 1
+
+    if isfield(options,'binnedloglik') && ~isempty(options.binnedloglik) ...
+            && options.binnedloglik
+        % Log likelihood is binned, need to unpack
+        if isempty(extras); [~,extras] = loocvfun(sampling.samples(1,:)); end
+        error('Unpacking of log likelihood not supported.');
+    else
+        psislogliks = sampling.logliks;
+    end
+
+    [loo,loos,ks] = psisloo(psislogliks);
+    metrics.loocv = loo;        
+    sampling.sumstats.loos = loos;
+    sampling.sumstats.ks = ks;
+end
 
 end
