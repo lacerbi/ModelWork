@@ -127,17 +127,9 @@ if samplingflag
     sampling.meantheta = mean(sampling.samples,1);
     sampling.robusttheta = trimmean(sampling.samples, 20, 1);
     
-    % Compute DIC and WAIC
+    % Compute DIC
     pointloglike = -nllpdf(sampling.meantheta,mfit.mp,0,0);
     mfit.metrics.dic = -4*sum(sampling.sumstats.loglikesmean1, 2) + 2*pointloglike;    
-
-    % Compute WAIC1 and 2 (see Bayesian Data Analysis, 3rd edition)
-    waic1 = 2*sum(log(sampling.sumstats.loglikesmean1exp) - sampling.sumstats.loglikesmean1, 2);
-    sum1sq = sampling.sumstats.loglikesmean1.^2.*sampling.sumstats.n;
-    waic2 = sum((sampling.sumstats.loglikessqsum1 - sum1sq)./(sampling.sumstats.n-1), 2);
-    lppd = sum(log(sampling.sumstats.loglikesmean1exp), 2);
-    mfit.metrics.waic1 = -2*lppd + 2*waic1;
-    mfit.metrics.waic2 = -2*lppd + 2*waic2;
     
     % Compute PSIS-LOO cross validation score
     if loocvflag
@@ -258,6 +250,15 @@ function [sampling,metrics] = psisloocv(sampling,project,mfit,options)
 
 metrics = mfit.metrics;
 extras = [];
+
+% Compute WAIC1 and 2 (see Bayesian Data Analysis, 3rd edition)
+warning('WAIC computation needs to be fixed!');
+waic1 = 2*sum(log(sampling.sumstats.loglikesmean1exp) - sampling.sumstats.loglikesmean1, 2);
+sum1sq = sampling.sumstats.loglikesmean1.^2.*sampling.sumstats.n;
+waic2 = sum((sampling.sumstats.loglikessqsum1 - sum1sq)./(sampling.sumstats.n-1), 2);
+lppd = sum(log(sampling.sumstats.loglikesmean1exp), 2);
+mfit.metrics.waic1 = -2*lppd + 2*waic1;
+mfit.metrics.waic2 = -2*lppd + 2*waic2;
 
 % If needed, recompute the per-trial log likelihood
 if size(sampling.logliks,2) == 1
