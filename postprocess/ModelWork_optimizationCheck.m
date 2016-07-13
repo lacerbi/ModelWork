@@ -73,7 +73,7 @@ set(hl,'Box','off');
 axis([0 1 0 1]);
 axis off;
 
-%% Plot summary statitics of bootstrapped minima
+%% Plot summary statistics of bootstrapped minima
 
 figure;
 subplot(2,1,1);
