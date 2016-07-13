@@ -10,12 +10,18 @@ function mfit = ModelBag_merge(project,m1,m2,data)
 if nargin < 4; data = []; end
 
 % The following elements need to match
-equalfields = {'type','dataid','model','cnd','nData'};
+equalfields = {'type','dataid','model','cnd'};
+% equalfields = {'type','dataid','model','cnd','nData'};
 for i = 1:length(equalfields)
     f1 = m1.(equalfields{i});
     f2 = m2.(equalfields{i});
     if ~all(f1(:) == f2(:)); error(['Cannot merge: Model fits differ in field ''' equalfields{i} '''.']); end    
 end
+
+% Cast only a warning for unequal data points
+f1 = m1.nData;
+f2 = m2.nData;
+if ~all(f1(:) == f2(:)); warning(['Model fits differ in field ''nData'' (M1 = ' num2str(f1) ', M2 = ' num2str(f2) ').']); end    
 
 mfit = m1;  % Use M1 as base
 hessianflag = 0;
