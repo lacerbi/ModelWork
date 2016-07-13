@@ -48,6 +48,12 @@ for i = 1:n
     g(irow,icol) = 1;
 end
 
+if any(exitflag)
+    fprintf('%d datasets with major issues and %d datasets with minor issues.\n', numel(find(exitflag == 2)), numel(find(exitflag == 1)));
+else
+    fprintf('All datasets and model present no issues.\n');
+end
+
 if info.writeflag
     if isempty(type); error('TYPE not specified.'); end
     iProc = 1;
