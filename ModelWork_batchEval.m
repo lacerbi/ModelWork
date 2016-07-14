@@ -23,7 +23,7 @@ if isempty(project); error('You need to specify the project name PROJECT.'); end
 % Read job list from file
 if ischar(jobs)
     fin = fopen(jobs,'r');
-    jobs = []; 
+    jobs = [];
     joblist = textscan(fin,'%d %s %s %s %s');
     for i = 1:length(joblist{1})
         jobs{i}.type = joblist{1}(i);
@@ -210,6 +210,14 @@ try
     if options.nsamples > 0
         [mfit,exitflag] = ModelWork_modelFit(project,data,mfit,'sample',options);
         if ~isempty(mfit) && exitflag == 0        
+            mbag = ModelBag_add(mbag,mfit,'replace',project);
+        end
+    end
+    
+    % 3: Recompute model statistics
+    if options.optfevals == 0 && options.nsamples == 0
+        mfit = ModelWork_modelStats(project,mfit,options.hessianflag,[],[],options);
+        if ~isempty(mfit)
             mbag = ModelBag_add(mbag,mfit,'replace',project);
         end
     end

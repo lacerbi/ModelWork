@@ -34,10 +34,10 @@ clear functions;
 % Default options for ModelStats
 if isempty(options)
     options.maxstoredsamples = [];  % Maximum number of stored samples
-    options.recomputeloo = [];      % Force recomputation of log likes for LOO-CV
+    options.recomputesamplingmetrics = [];      % Force recomputation of log likes for LOO-CV
 end
 if isempty(options.maxstoredsamples); options.maxstoredsamples = Inf; end
-if isempty(options.recomputeloo); options.recomputeloo = 0; end
+if isempty(options.recomputesamplingmetrics); options.recomputesamplingmetrics = 0; end
 
 if isempty(mfit.mp) % If fields are empty, try to load data
     try
@@ -61,11 +61,11 @@ end
 samplingflag = ~isempty(mfit.sampling) && ...
     isfield(mfit.sampling,'samples') && size(mfit.sampling.samples,1) > 0;
 
-loocvflag = samplingflag && ...
-    ( size(mfit.sampling.logliks, 2) > 1 || options.recomputeloo );
+samplingmetricsflag = samplingflag && ...
+    ( size(mfit.sampling.logliks, 2) > 1 || options.recomputesamplingmetrics );
 
 % Minus log likelihood function handle
-nllpdf = @(x,mp,logpriorflag,randomizeflag) ModelWork_like(project,mfit.X,mp,mfit.infostruct,x,logpriorflag,0,randomizeflag);
+nllfun = @(x,mp,logpriorflag,randomizeflag) ModelWork_like(project,mfit.X,mp,mfit.infostruct,x,logpriorflag,0,randomizeflag);
 
 % Copy number of data points
 if isfield(mfit,'nData'); mfit.mp.nData = mfit.nData; end
@@ -79,13 +79,7 @@ if samplingflag
     
     % Compute sampled chains summary statistics
     if ~isfield(mfit, 'sumstats') || isempty(mfit.sumstats)
-        logliks = sum(sampling.logliks,2);
-        lz = max(logliks);
-        sampling.sumstats.smplmean1 = nanmean(sampling.samples, 1);
-        sampling.sumstats.loglikesmean1 = nanmean(logliks, 1);
-        sampling.sumstats.loglikesmean1exp = exp(lz)*nanmean(exp(logliks-lz), 1);
-        sampling.sumstats.loglikessqsum1 = nansum(logliks.^2, 1);
-        sampling.sumstats.n = sum(~isnan(logliks), 1);
+        sampling.sumstats = samplingStats(sampling);
     end
     
     % Check if log prior is present
@@ -128,12 +122,12 @@ if samplingflag
     sampling.robusttheta = trimmean(sampling.samples, 20, 1);
     
     % Compute DIC
-    pointloglike = -nllpdf(sampling.meantheta,mfit.mp,0,0);
+    pointloglike = -nllfun(sampling.meantheta,mfit.mp,0,0);
     mfit.metrics.dic = -4*sum(sampling.sumstats.loglikesmean1, 2) + 2*pointloglike;    
     
-    % Compute PSIS-LOO cross validation score
-    if loocvflag
-        [sampling,mfit.metrics] = psisloocv(sampling,project,mfit,options);
+    % Compute WAIC and PSIS-LOO cross validation score
+    if samplingmetricsflag
+        [sampling,mfit.metrics] = trialSampleMetrics(sampling,project,mfit,options);
     end    
 
     % Do not keep full log data table
@@ -182,7 +176,7 @@ mfit.mp.computation = 'precise';
 [mfit.mp, exitflag] = setupModelFun(mfit.mp, mfit.maptheta);
 
 % Compute MLE/MAP and Hessian
-mfit.metrics.maploglike = -nllpdf(mfit.maptheta',mfit.mp,1,0);
+mfit.metrics.maploglike = -nllfun(mfit.maptheta',mfit.mp,1,0);
 % Compute marginal likelihood and Hessian
 mfit.metrics.mapmarginallike = mfit.metrics.maploglike;
 
@@ -191,7 +185,7 @@ if nnoise > 0
     ll = zeros(1,nnoise);
     for i = 1:nnoise
         clear functions;
-        ll(i) = -nllpdf(mfit.maptheta',mfit.mp,0,1);
+        ll(i) = -nllfun(mfit.maptheta',mfit.mp,0,1);
     end
     mfit.metrics.maploglikeSD = std(ll);
 else
@@ -245,50 +239,71 @@ mfit.uptodate = 1;
 end
 
 %--------------------------------------------------------------------------
-function [sampling,metrics] = psisloocv(sampling,project,mfit,options)
-%PSISLOOCV Compute Pareto smoothed importance sampling leave-one-out CV.
+function [sampling,metrics] = trialSampleMetrics(sampling,project,mfit,options)
+%TRIALSAMPLEMETRICS Compute trial-based sampling metrics (WAIC, PSIS-LOO CV).
 
 metrics = mfit.metrics;
 extras = [];
 
-% Compute WAIC1 and 2 (see Bayesian Data Analysis, 3rd edition)
-warning('WAIC computation needs to be fixed!');
-waic1 = 2*sum(log(sampling.sumstats.loglikesmean1exp) - sampling.sumstats.loglikesmean1, 2);
-sum1sq = sampling.sumstats.loglikesmean1.^2.*sampling.sumstats.n;
-waic2 = sum((sampling.sumstats.loglikessqsum1 - sum1sq)./(sampling.sumstats.n-1), 2);
-lppd = sum(log(sampling.sumstats.loglikesmean1exp), 2);
-mfit.metrics.waic1 = -2*lppd + 2*waic1;
-mfit.metrics.waic2 = -2*lppd + 2*waic2;
-
 % If needed, recompute the per-trial log likelihood
 if size(sampling.logliks,2) == 1
-    loocvfun = @(th_) ModelWork_like(project,mfit.X,mfit.mp,mfit.infostruct,th_,0,1,0);
-    [logliks(1,:),extras] = loocvfun(sampling.samples(1,:));
-    if size(logliks,2) > 1
-        logliks = repmat(logliks, [size(sampling.samples,1),1]);        
+    nllfun = @(th_) ModelWork_like(project,mfit.X,mfit.mp,mfit.infostruct,th_,0,1,0);
+    [nlls(1,:),extras] = nllfun(sampling.samples(1,:));
+    if size(nlls,2) > 1
+        fprintf('Recomputing trial-based log likelihoods...\nSample ');        
+        nlls = repmat(nlls, [size(sampling.samples,1),1]);        
         for iSamp = 2:size(sampling.samples,1)
-            logliks(iSamp,:) = loocvfun(sampling.samples(iSamp,:));
+            if mod(iSamp,100) == 0
+                fprintf('%d..', iSamp);
+            end
+            nlls(iSamp,:) = nllfun(sampling.samples(iSamp,:));
         end
-        sampling.logliks = logliks;
+        fprintf('\n');
+        sampling.logliks = -nlls;
     end
 end
 
-% Compute PSIS-LOO CV score if trial log-likelihoods are available
+% Compute trial-based metrics if trial log-likelihoods are available
 if size(sampling.logliks,2) > 1
-
     if isfield(options,'binnedloglik') && ~isempty(options.binnedloglik) ...
             && options.binnedloglik
         % Log likelihood is binned, need to unpack
-        if isempty(extras); [~,extras] = loocvfun(sampling.samples(1,:)); end
+        if isempty(extras); [~,extras] = nllfun(sampling.samples(1,:)); end
         error('Unpacking of log likelihood not supported.');
     else
-        psislogliks = sampling.logliks;
+        logliks = sampling.logliks;
     end
+    
+    % Recompute summary statistics
+    sampling.sumstats = samplingStats(sampling);
+    
+    % Compute WAIC1 and 2 (see Bayesian Data Analysis, 3rd edition)
+    waic1 = 2*sum(log(sampling.sumstats.loglikesmean1exp) - sampling.sumstats.loglikesmean1, 2);
+    sum1sq = sampling.sumstats.loglikesmean1.^2.*sampling.sumstats.n;
+    waic2 = sum((sampling.sumstats.loglikessqsum1 - sum1sq)./(sampling.sumstats.n-1), 2);
+    lppd = sum(log(sampling.sumstats.loglikesmean1exp), 2);
+    mfit.metrics.waic1 = -2*lppd + 2*waic1;
+    mfit.metrics.waic2 = -2*lppd + 2*waic2;
 
-    [loo,loos,ks] = psisloo(psislogliks);
+    [loo,loos,ks] = psisloo(logliks);
     metrics.loocv = loo;        
     sampling.sumstats.loos = loos;
     sampling.sumstats.ks = ks;
 end
+
+end
+
+%--------------------------------------------------------------------------
+function sumstats = samplingStats(sampling)
+%SAMPLINGSTATS Compute sampling summary statistics.
+
+if isfield(sampling,'sumstats'); sumstats = sampling.sumstats; end
+logliks = sum(sampling.logliks,2);
+lz = max(logliks);
+sumstats.smplmean1 = nanmean(sampling.samples, 1);
+sumstats.loglikesmean1 = nanmean(logliks, 1);
+sumstats.loglikesmean1exp = exp(lz)*nanmean(exp(logliks-lz), 1);
+sumstats.loglikessqsum1 = nansum(logliks.^2, 1);
+sumstats.n = sum(~isnan(logliks), 1);
 
 end
