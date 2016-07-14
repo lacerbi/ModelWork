@@ -235,10 +235,10 @@ if ~isempty(mfit.sampling); mfit.sampling = orderfields(mfit.sampling); end
 
 mfit.mp.computation = []; % Go back to normal
 
-% If sampling, update model parameter structure to the posterior mean
-if samplingflag
-    [mfit.mp,exitflag] = setupModelFun(mfit.mp, mfit.sampling.meantheta);
-end
+% Update model parameter structure to posterior mean if sampling (deprecated)
+%if samplingflag
+%    [mfit.mp,exitflag] = setupModelFun(mfit.mp, mfit.sampling.meantheta);
+%end
 
 mfit.uptodate = 1;
 
