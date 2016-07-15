@@ -97,12 +97,19 @@ for iPanel = 1:length(fig.panels)
                     plotfields = {'x','y','z','zerr'};                    
                     prepareDataFun = @PrepareDataPlot2D; 
                 end
+                
                 % source.binfunerr1 = '@(y) std(y)'; % SD of fake data    
-                for iGen = 1:numel(gendata.data)                    
+                
+                source.dataids = assign(source,'dataids',0);
+                if source.dataids == 0; source.dataids = 1:numel(gendata.data); end
+                
+                ii = 1;
+                for iGen = source.dataids                  
                     tempplot = prepareDataFun(thisplot,gendata.data{iGen},source,0,1);
                     for iField = 1:length(plotfields)                        
-                        temp.(plotfields{iField})(iGen,:) = tempplot.(plotfields{iField});
+                        temp.(plotfields{iField})(ii,:) = tempplot.(plotfields{iField});
                     end
+                    ii = ii + 1;
                 end
                                 
                 thisplot = tempplot;
