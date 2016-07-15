@@ -250,15 +250,12 @@ if size(sampling.logliks,2) == 1
     nllfun = @(th_) ModelWork_like(project,mfit.X,mfit.mp,mfit.infostruct,th_,0,1,0);
     [nlls(1,:),extras] = nllfun(sampling.samples(1,:));
     if size(nlls,2) > 1
-        fprintf('Recomputing trial-based log likelihoods...\nSample ');        
-        nlls = repmat(nlls, [size(sampling.samples,1),1]);        
-        for iSamp = 2:size(sampling.samples,1)
-            if mod(iSamp,100) == 0
-                fprintf('%d..', iSamp);
-            end
-            nlls(iSamp,:) = nllfun(sampling.samples(iSamp,:));
-        end
-        fprintf('\n');
+        startmsg = 'Recomputing trial-based log likelihoods... Sample ';
+        filename = [options.fullfilename(1:end-4) '_batch.tmp'];        
+        % Jitter save to avoid simultaneous save from all processes
+        SaveTime = (0.9 + 0.2*rand())*options.savetime;        
+        nlls(2:size(sampling.samples,1),:) = ...
+            fbatcheval(nllfun,sampling.samples(2:end,:),1,filename,SaveTime,startmsg);        
         sampling.logliks = -nlls;
     end
 end
