@@ -159,6 +159,9 @@ for j = 1:nmodels
                             modelsummary.sampling.maxR = NaN(ndata,nmodels,ncnd);
                             modelsummary.sampling.minneff = NaN(ndata,nmodels,ncnd);
                             modelsummary.sampling.nchains = NaN(ndata,nmodels,ncnd);
+                            modelsummary.sampling.psis_maxK = NaN(ndata,nmodels,ncnd);
+                            modelsummary.sampling.psis_badKfreq = NaN(ndata,nmodels,ncnd);
+                            modelsummary.sampling.psis_mehKfreq = NaN(ndata,nmodels,ncnd);
                         end
                         
                         if ~isempty(s.sumstats.R)
@@ -168,6 +171,11 @@ for j = 1:nmodels
                             modelsummary.sampling.minneff(i, j, k) = min(s.sumstats.neff);
                         end
                         modelsummary.sampling.nchains(i, j, k) = s.nchains;
+                        if isfield(s.sumstats,'ks') && ~isempty(s.sumstats.ks)
+                            modelsummary.sampling.psis_maxK(i, j, k) = max(s.sumstats.ks);
+                            modelsummary.sampling.psis_badKfreq(i, j, k) = sum(s.sumstats.ks > 1)/numel(s.sumstats.ks);                            
+                            modelsummary.sampling.psis_mehKfreq(i, j, k) = sum(s.sumstats.ks > 0.5)/numel(s.sumstats.ks);                            
+                        end
                 end
                     
                 %if isfield(m, 'robusttheta')
