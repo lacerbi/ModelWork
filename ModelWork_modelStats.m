@@ -256,7 +256,13 @@ if size(sampling.logliks,2) == 1
         SaveTime = (0.9 + 0.2*rand())*options.savetime;
         temp = fbatcheval(nllfun,sampling.samples(2:end,:),1,filename,SaveTime,startmsg);
         nlls(2:size(sampling.samples,1),:) = temp;        
+        % Remove empty trials
+        idx = all(nlls == 0,1);
+        nlls(:,idx) = [];        
         sampling.logliks = -nlls;
+        if size(sampling.logliks,2) ~= mfit.nData
+            warning(['Declared number of trials in model fit (n=' num2str(mfit.nData) ') does not match log likelihood (n=' num2str(size(sampling.logliks,2)) ').']);
+        end
     end
 end
 
