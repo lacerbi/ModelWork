@@ -259,8 +259,6 @@ if isfield(options,'scratch'); options = rmfield(options, 'scratch'); end;
 
 % MATLAB may fail while saving and leave a corrupt file -- at least avoid
 % that it ruins both the old and the new file
-safesave(fileinfo.fullfilename);
-
 if exist(fileinfo.fullfilename,'file')
     [pathstr,name,ext] = fileparts(fileinfo.fullfilename);
     tempfile = fullfile(pathstr,[name '.old']);
