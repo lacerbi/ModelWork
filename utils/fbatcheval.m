@@ -39,14 +39,14 @@ if ~isempty(filename) && exist(filename,'file')
     %% Load interrupted execution from file
     
     % Store current options
-    fout_new = fout; filename_new = filename;
+    fun_new = fun; fout_new = fout; filename_new = filename;
     cptime_new = cptime; startmsg_new = startmsg;
     
     load(filename,'-mat');  % Load run from recovery file
     i0 = iSamp;                     % Start from recovered iteration
     if fout > 0; fprintf('Loading sampling from file ''%s''.\n', filename); end
 
-    fout = fout_new; filename = filename_new;
+    fun = fun_new; fout = fout_new; filename = filename_new;
     cptime = cptime_new; startmsg = startmsg_new;
     clear fout_new filename_new cptime_new startmsg_new;
 else

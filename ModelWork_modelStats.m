@@ -253,9 +253,9 @@ if size(sampling.logliks,2) == 1
         startmsg = 'Recomputing trial-based log likelihoods... Sample ';
         filename = [options.fullfilename(1:end-4) '_batch.tmp'];        
         % Jitter save to avoid simultaneous save from all processes
-        SaveTime = (0.9 + 0.2*rand())*options.savetime;        
-        nlls(2:size(sampling.samples,1),:) = ...
-            fbatcheval(nllfun,sampling.samples(2:end,:),1,filename,SaveTime,startmsg);        
+        SaveTime = (0.9 + 0.2*rand())*options.savetime;
+        temp = fbatcheval(nllfun,sampling.samples(2:end,:),1,filename,SaveTime,startmsg);
+        nlls(2:size(sampling.samples,1),:) = temp;        
         sampling.logliks = -nlls;
     end
 end

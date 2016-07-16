@@ -216,7 +216,7 @@ try
     
     % 3: Recompute model statistics
     if options.optfevals == 0 && options.nsamples == 0
-        mfit = ModelWork_modelStats(project,mfit,options.hessianflag,[],[],options);
+        mfit = ModelWork_modelStats(project,mfit,options.hessianflag,[],1,options);
         if ~isempty(mfit)
             mbag = ModelBag_add(mbag,mfit,'replace',project);
         end
