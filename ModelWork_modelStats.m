@@ -117,6 +117,18 @@ if samplingflag
     sampling.sumstats.neff = neff;
     sampling.sumstats.tau = tau;
     
+    % Multivariate effective sample size (mESS) analysis
+    nvars = size(sampling.samples, 2);
+    if size(sampling.samples, 1) > sampling.nchains*nvars
+        X = [];
+        nsamplesperchain = floor(size(sampling.samples, 1)/sampling.nchains);
+        for k = 1:sampling.nchains
+            X{k} = sampling.samples((1:nsamplesperchain) + (k-1)*nsamplesperchain, :);
+        end
+        mESS = multiESS(X,[],'lESS',10,200);
+        sampling.sumstats.mESS_chain = mESS;
+    end    
+    
     % Compute mean parameter estimates
     sampling.meantheta = mean(sampling.samples,1);
     sampling.robusttheta = trimmean(sampling.samples, 20, 1);

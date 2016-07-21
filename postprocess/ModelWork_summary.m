@@ -164,6 +164,7 @@ for j = 1:nmodels
                         if ~isfield(modelsummary,'sampling')
                             modelsummary.sampling.maxR = NaN(ndata,nmodels,ncnd);
                             modelsummary.sampling.minneff = NaN(ndata,nmodels,ncnd);
+                            modelsummary.sampling.multiESS = NaN(ndata,nmodels,ncnd);
                             modelsummary.sampling.nchains = NaN(ndata,nmodels,ncnd);
                             modelsummary.sampling.psis_maxK = NaN(ndata,nmodels,ncnd);
                             modelsummary.sampling.psis_badKfreq = NaN(ndata,nmodels,ncnd);
@@ -175,6 +176,9 @@ for j = 1:nmodels
                         end
                         if ~isempty(s.sumstats.neff)
                             modelsummary.sampling.minneff(i, j, k) = min(s.sumstats.neff);
+                        end
+                        if isfield(s.sumstats,'mESS_chain') && ~isempty(s.sumstats.mESS_chain)
+                            modelsummary.sampling.minneff(i, j, k) = sum(s.sumstats.mESS_chain);
                         end
                         modelsummary.sampling.nchains(i, j, k) = s.nchains;
                         if isfield(s.sumstats,'ks') && ~isempty(s.sumstats.ks)
