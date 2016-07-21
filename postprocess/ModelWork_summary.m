@@ -125,6 +125,7 @@ for iModel = 1:nmodels
 end
 
 % Create empty model metrics tables
+modelsummary.nparams = NaN(1,nmodels);
 metrics = {'aic','aicc','bic','dic','waic1','waic2','loocv','maploglike','marginallike'};
 for mcm = metrics
     modelsummary.(mcm{:}) = NaN(ndata,nmodels,ncnd);
@@ -140,12 +141,17 @@ end
 
 for j = 1:nmodels
     display(['Summarizing model ' num2str(j) ' out of ' num2str(nmodels) '.']);
-    model = models(j, :);
+    model = models(j, :);    
     for i = 1:ndata
         for k = 1:ncnd
             mfit = ModelBag_get(mbag, dataid(i, :), model, {cnd(k, :)});
             if ~isempty(mfit)
                 m = mfit.metrics;
+                
+                if isnan(modelsummary.nparams(j))
+                    modelsummary.nparams(j) = numel(mfit.maptheta);
+                end
+                
                 for mcm = metrics
                     if isfield(m,mcm{:}) && ~isempty(m.(mcm{:}))
                         modelsummary.(mcm{:})(i, j, k) = m.(mcm{:});
