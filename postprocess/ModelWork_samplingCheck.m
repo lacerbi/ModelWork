@@ -20,7 +20,7 @@ end
 if info.plotflag; figure; end
 
 compute_stats = 1;
-if isfield(mbag,'bag') && isfield(mbag,'table')
+if isfield(mbag,'bag') && isfield(mbag,'project')
     mfit = mbag.bag;
 elseif ~iscell(mbag)
     mfit = {mbag};

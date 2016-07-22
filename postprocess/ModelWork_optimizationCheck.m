@@ -1,4 +1,4 @@
-function [exitflag,minstats] = ModelWork_optimizationCheck(mbag,thresh)
+function [exitflag,minstats] = ModelWork_optimizationCheck(mbag,thresh,ci)
 % MODELWORK_OPTIMIZATIONCHECK check optimization results.
 %
 % MODELSUMMARY = MODELWORK_SUMMARY(MBAG) merges batches with identifiers in 
@@ -6,6 +6,7 @@ function [exitflag,minstats] = ModelWork_optimizationCheck(mbag,thresh)
 %
 
 if nargin < 2 || isempty(thresh); thresh = 0.1; end
+if nargin < 3 || isempty(ci); ci = 99; end
 
 figure;
 
@@ -38,10 +39,10 @@ for i = 1:n
     irow = 1 + floor((i-1)/ncols);
     subplot(nrows,ncols,i);
     if compute_stats
-        [exitflag(i),minstats(i)] = optimizationCheck(mfit{i},thresh);
+        [exitflag(i),minstats(i)] = optimizationCheck(mfit{i},thresh,ci);
         drawnow;
     else
-        [exitflag(i),minstats(i)] = optimizationCheck(minstats(i),thresh);
+        [exitflag(i),minstats(i)] = optimizationCheck(minstats(i),thresh,ci);
     end
     if icol ~= 1; set(gca,'YtickLabel',[]); end
     g(irow,icol) = 1;
@@ -68,7 +69,7 @@ plot([0 0],[0 0],'k-','LineWidth',1);
 plot([0 0],[0 0],'k--','LineWidth',1);
 plot([0 0],[0 0], '-', 'LineWidth',2,'Color',0.6*[1 1 1]);
 
-hl = legend('Min 95% UCB','Min median','Error threshold','Reached threshold');
+hl = legend(['Min ' num2str(ci) '% UCB'],'Min median','Error threshold','Reached threshold');
 set(hl,'Box','off');
 axis([0 1 0 1]);
 axis off;
@@ -111,7 +112,7 @@ xticklabels{numel(xticks)} = 'Inf';
 set(gca,'Xtick',xticks,'XTickLabel',xticklabels,'TickDir','out');
 box off;
 set(gcf,'Color','w');
-xlabel('Fraction restarts before hitting threshold with 95% confidence');
+xlabel(['Fraction restarts before hitting threshold with ' num2str(ci) '% confidence']);
 ylabel('# optimization problems');
 
 
@@ -142,17 +143,17 @@ yticks = [ymin,thresh,ymax];
 for i = 1:numel(yticks); yticklabel{i} = num2str(yticks(i)); end
 set(gca,'Xtick',xticks,'Ytick',log(yticks),'YtickLabel',yticklabel);
 
-hl = legend('Min 95% UCB','Min median','Error threshold');
+hl = legend(['Min ' num2str(UCB) '% UCB'],'Min median','Error threshold');
 set(hl,'Box','off');
 
 end
 
 %--------------------------------------------------------------------------
-function [exitflag,minstats] = optimizationCheck(mfit,thresh)
+function [exitflag,minstats] = optimizationCheck(mfit,thresh,ci)
 
 TolFun = 0.01;  % Maximum precision
 logflag = 1;    % Plot in log coordinates
-nboot = 1e4;    % Bootstrap samples
+nboot = 2e4;    % Bootstrap samples
 
 if isfield(mfit,'minval') && isfield(mfit,'ferr_median')
     minstats = mfit;
@@ -176,7 +177,7 @@ else
         idx = randi(n,[minstats.nrestarts(i),nboot]);
         m = min(minstats.ferrs(idx),[],1);
         minstats.ferr_median(i) = median(m);
-        minstats.ferr_ucb(i) = prctile(m,95);
+        minstats.ferr_ucb(i) = prctile(m,ci);
     end
 
 end
