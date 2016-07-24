@@ -80,6 +80,12 @@ minstats = [];
 
 thresh = [100,300];
 
+if isempty(mfit.sampling)
+    exitflag = NaN;
+    axis off;
+    return;
+end
+
 % Read diagnostics
 R = mfit.sampling.sumstats.R;
 neff = mfit.sampling.sumstats.neff;

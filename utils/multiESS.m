@@ -1,8 +1,72 @@
 function [mESS,Sigma,b] = multiESS(X,Sigma,b,Noffsets,Nb)
 %MULTIESS Compute multivariate effective sample size of Markov chain.
+%   MESS = MULTIESS(X) computes effective sample size MESS of single Markov 
+%   chain X, using the multivariate dependence structure of the process. 
+%   X is a n-by-p array, where each row is a p-dimensional sample and n
+%   is the current chain sample size.
+%
+%   The effective sample size of a Markov chain is the size of an i.i.d. 
+%   sample with the same covariance structure as the current chain. MESS is 
+%   given by MESS = n * det(LAMBDA)^(1/p) / det(SIGMA)^(1/p), where LAMBDA 
+%   is the sample covariance matrix and SIGMA is an estimate of the Monte 
+%   Carlo covariance matrix for the Markov chain (here obtained by batch 
+%   estimation).
+%
+%   MESS = MULTIESS(X,SIGMA) passes optional estimate of covariance matrix
+%   in Markov chain central limit theorem (CLT), as returned by a previous 
+%   call to MULTIESS.
+%
+%   MESS = MULTIESS(X,[],B) specifies the batch size for estimation of the 
+%   covariance matrix in Markov chain CLT. B can take a numeric value 
+%   between 1 and n/2, or a char value between: 
+%     
+%   'sqroot'    B=floor(n^(1/2)) (for chains with slow mixing time; default)
+%   'cuberoot'  B=floor(n^(1/3)) (for chains with fast mixing time)
+%   'lESS'      pick the B that produces the lowest effective sample size
+%               for a number of B ranging from n^(1/4) to n/max(10,p); this 
+%               is a conservative choice
+%
+%   MESS = MULTIESS(X,[],B,NOFFSETS). If n is not divisible by B, SIGMA is
+%   recomputed for up to NOFFSETS subsets of the data with different 
+%   offsets, and the output MESS is the average over the effective sample
+%   sizes obtained for different offsets (default NOFFSETS=10).
+%
+%   MESS = MULTIESS(X,[],B,NOFFSETS,NB) specifies the number of values of B 
+%   to test when B='lESS' (default NB=200). This option is unused for other 
+%   choices of B.
+%
+%   [MESS,SIGMA] = MULTIESS(...) returns a p-by-p covariance matrix estimate.
+%
+%   [MESS,SIGMA,B] = MULTIESS(...) returns the batch size used to compute 
+%   the covariance SIGMA.
+%
+%   MULTIESS also accepts as input multiple Markov chains, either passed as 
+%   a cell array (such that X{i} is the i-th Markov chain) or as a 
+%   n-by-d-by-k array, where X(:,:,i) contains the samples of the i-th
+%   chain. In this case, the output MESS is a 1-by-k array that reports the 
+%   effective sample size of each chain. Similarly, the output SIGMA is a 
+%   p-by-p-by-k array where SIGMA(:,:,i) is the covariance matrix for the 
+%   i-th chain; and the output B is a 1-by-k array.
+%
+%   Reference: 
+%   Vats, D., Flegal, J. M., & Jones, G. L. "Multivariate Output Analysis 
+%   for Markov chain Monte Carlo", arXiv preprint arXiv:1512.07713 (2015).
+%
+%   Disclaimer: This version is still work in progress, in need of more
+%   thorough testing.
+
+% Copyright (C) 2016 Luigi Acerbi
+%
+% This software is distributed under the GNU General Public License 
+% (version 3 or later); please refer to the file license.txt, included with 
+% the software, for details.
+
+%   Author:     Luigi Acerbi
+%   Email:      luigi.acerbi@gmail.com
+%   Version:    23/Jul/2016 (beta)
 
 if nargin < 2; Sigma = []; end
-if nargin < 3 || isempty(b); b = 'lESS'; end
+if nargin < 3 || isempty(b); b = 'sqroot'; end
 if nargin < 4 || isempty(Noffsets); Noffsets = 10; end
 if nargin < 5; Nb = []; end
 
