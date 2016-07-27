@@ -111,6 +111,10 @@ writelog(fout,'start',options,nsamples,thin,options.maxstoredsamples);
             smploptions.SaveTime = (0.9 + 0.2*rand())*options.savetime;
             K = 2*(nvars+1);
             
+            % Variable transformation
+            smploptions.VarTransformMethod = 2;
+            smploptions.VarTransformRestarts = 1e4;
+            
             % Additional options
             if isfield(options,'FitGMM')
                 smploptions.FitGMM = options.FitGMM;

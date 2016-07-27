@@ -35,7 +35,9 @@ dataone = data{options.dataid(1)};
 
 exitflag = 0; % Everything is fine
 
-clear functions; % Clear persistent variables
+if options.clearfunctions
+    clear functions; % Clear persistent variables (does it by default)
+end
 
 switch lower(method(1:3))
     case 'opt'              % Optimizing

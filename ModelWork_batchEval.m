@@ -174,7 +174,9 @@ end
 % BATCH RUN
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-clear functions; % Clear persistent variables
+if options.clearfunctions
+    clear functions; % Clear persistent variables (does it by default)
+end
 
 try
     
