@@ -113,7 +113,7 @@ writelog(fout,'start',options,nsamples,thin,options.maxstoredsamples);
             
             % Variable transformation
             smploptions.VarTransformMethod = 2;
-            smploptions.VarTransformRestarts = 1e4;
+            smploptions.VarTransformRestarts = 1e4;            
             
             % Additional options
             if isfield(options,'FitGMM')
