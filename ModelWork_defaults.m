@@ -46,7 +46,7 @@ optlist(end+1) = struct('name', 'nstarts', 'type', 'matrix', 'default', []);
 optlist(end+1) = struct('name', 'seed', 'type', 'matrix', 'default', []);
 optlist(end+1) = struct('name', 'startx', 'type', 'matrix', 'default', []);
 optlist(end+1) = struct('name', 'loadstartx', 'type', 'flag', 'default', 0);
-optlist(end+1) = struct('name', 'savetime', 'type', 'matrix', 'default', 5400);
+optlist(end+1) = struct('name', 'savetime', 'type', 'matrix', 'default', 3600);
 optlist(end+1) = struct('name', 'binnedloglik', 'type', 'matrix', 'default', 0);
 optlist(end+1) = struct('name', 'logpriorflag', 'type', 'flag', 'default', 0);
 
