@@ -68,6 +68,7 @@ optlist(end+1) = struct('name', 'samplingtemperature', 'type', 'matrix', 'defaul
 
 %% POSTPROCESSING
 optlist(end+1) = struct('name', 'recomputesamplingmetrics', 'type', 'matrix', 'default', 0);
+optlist(end+1) = struct('name', 'computemarginallike', 'type', 'matrix', 'default', 0);
 optlist(end+1) = struct('name', 'hessianflag', 'type', 'matrix', 'default', 0);
 optlist(end+1) = struct('name', 'removefunhandles', 'type', 'string', 'default', []);
 

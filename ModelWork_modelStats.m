@@ -35,9 +35,11 @@ clear functions;
 if isempty(options)
     options.maxstoredsamples = [];  % Maximum number of stored samples
     options.recomputesamplingmetrics = [];      % Force recomputation of log likes for LOO-CV
+    options.computemarginallike = [];   % Compute marginal likelihood from MCMC output
 end
 if isempty(options.maxstoredsamples); options.maxstoredsamples = Inf; end
 if isempty(options.recomputesamplingmetrics); options.recomputesamplingmetrics = 0; end
+if isempty(options.computemarginallike); options.computemarginallike = 0; end
 
 if isempty(mfit.mp) % If fields are empty, try to load data
     try
@@ -63,6 +65,9 @@ samplingflag = ~isempty(mfit.sampling) && ...
 
 samplingmetricsflag = samplingflag && ...
     ( size(mfit.sampling.logliks, 2) > 1 || options.recomputesamplingmetrics );
+
+% EXPERIMENTAL FEATURE (do not fully trust results)
+marginallikeflag = samplingflag && options.computemarginallike;
 
 % Minus log likelihood function handle
 nllfun = @(x,mp,logpriorflag,randomizeflag) ModelWork_like(project,mfit.X,mp,mfit.infostruct,x,logpriorflag,0,randomizeflag);
@@ -140,7 +145,12 @@ if samplingflag
     % Compute WAIC and PSIS-LOO cross validation score
     if samplingmetricsflag
         [sampling,mfit.metrics] = trialSampleMetrics(sampling,project,mfit,options);
-    end    
+    end
+    
+    % Approximate marginal likelihood via weighted harmonic mean (EXPERIMENTAL)
+    if marginallikeflag
+        [sampling,mfit.metrics] = computeMarginalLike(sampling,project,mfit,options);
+    end
 
     % Do not keep full log data table
     sampling.logliks = sum(sampling.logliks, 2);
@@ -228,7 +238,7 @@ else
     mfit.metrics.H = []; mfit.metrics.Herr = [];    
 end
 
-% Calculate marginal likelihood (if Hessian is available)
+% Calculate marginal likelihood via Laplace (if Hessian is available)
 if isempty(mfit.metrics.H)
     mfit.metrics.marginallike = [];
 else
@@ -304,6 +314,41 @@ if size(sampling.logliks,2) > 1
     metrics.loocv = loo;        
     sampling.sumstats.loos = loos;
     sampling.sumstats.ks = ks;
+end
+
+end
+%--------------------------------------------------------------------------
+function [sampling,metrics] = computeMarginalLike(sampling,project,mfit,options)
+
+metrics = mfit.metrics;
+
+vboptions.Nstarts = 3;
+vboptions.Display = 'off';
+X = sampling.samples';
+Y = sum(sampling.logliks,2);
+
+logpriors = sampling.logpriors;
+% If all log priors are empty or zero, assume uniform priors
+if isempty(logpriors) || all(logpriors == 0)
+    logpriors = -sum(log(mfit.mp.bounds.UB - mfit.mp.bounds.LB));
+end
+Y = Y + logpriors;
+
+sampling.vbmodel = vbgmmfit(X,[],[],vboptions);
+
+% Marginal likelihood approximation methods
+methods = {'whmg','whmu','rlr'};
+
+for m = 1:numel(methods)    
+    [logZ,slogZ,fracZ,neff] = vbgmmmarglike(sampling.vbmodel,X,Y,methods{m});
+    % Pick estimate with lowest uncertainty
+    [slogZ,idx] = min(slogZ);
+    logZ = logZ(idx);
+    sampling.marginallike.(methods{m}).logZ = logZ;
+    sampling.marginallike.(methods{m}).slogZ = slogZ;
+    sampling.marginallike.(methods{m}).fracZ = fracZ;
+    sampling.marginallike.(methods{m}).neff = neff;
+    metrics.(['marginallike_' methods{m}]) = logZ;
 end
 
 end

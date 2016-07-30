@@ -112,8 +112,9 @@ writelog(fout,'start',options,nsamples,thin,options.maxstoredsamples);
             K = 2*(nvars+1);
             
             % Variable transformation
-            smploptions.VarTransformMethod = 2;
-            smploptions.VarTransformRestarts = 1e4;            
+            % smploptions.VarTransformMethod = 2; % Kumarawsmy-logistic-power transform
+            smploptions.VarTransformMethod = 4; % GMM CDF transform
+            smploptions.VarTransformRestarts = 1e4;
             
             % Additional options
             if isfield(options,'FitGMM')
