@@ -334,13 +334,13 @@ if isempty(logpriors) || all(logpriors == 0)
 end
 Y = Y + logpriors;
 
-sampling.vbmodel = vbgmmfit(X,[],[],vboptions);
+vbmodel = vbgmmfit(X,[],[],vboptions);
 
 % Marginal likelihood approximation methods
 methods = {'whmg','whmu','rlr'};
 
 for m = 1:numel(methods)    
-    [logZ,slogZ,fracZ,neff] = vbgmmmarglike(sampling.vbmodel,X,Y,methods{m});
+    [logZ,slogZ,fracZ,neff] = vbgmmmarglike(vbmodel,X,Y,methods{m});
     % Pick estimate with lowest uncertainty
     [slogZ,idx] = min(slogZ);
     logZ = logZ(idx);
@@ -350,6 +350,9 @@ for m = 1:numel(methods)
     sampling.marginallike.(methods{m}).neff = neff;
     metrics.(['marginallike_' methods{m}]) = logZ;
 end
+
+% This occupies a lot of memory, do not save
+% sampling.vbmodel = vbmodel;
 
 end
 
