@@ -43,6 +43,7 @@ optlist(end+1) = struct('name', 'dataidstring', 'type', 'string', 'default', [])
 optlist(end+1) = struct('name', 'firstSetting', 'type', 'matrix', 'default', []);
 optlist(end+1) = struct('name', 'speedtest', 'type', 'matrix', 'default', Inf);
 optlist(end+1) = struct('name', 'nstarts', 'type', 'matrix', 'default', []);
+optlist(end+1) = struct('name', 'nsobol', 'type', 'matrix', 'default', []);
 optlist(end+1) = struct('name', 'seed', 'type', 'matrix', 'default', []);
 optlist(end+1) = struct('name', 'startx', 'type', 'matrix', 'default', []);
 optlist(end+1) = struct('name', 'loadstartx', 'type', 'flag', 'default', 0);

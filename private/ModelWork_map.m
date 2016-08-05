@@ -33,10 +33,20 @@ if isempty(options.optrefinefevals); RefineFunEvals = MaxFunEvals;
 else RefineFunEvals = options.optrefinefevals; end
 RefineFunEvals = min(RefineFunEvals,100*nvars); % Fcn evals for refinement
 
+% Number of starting points
+if options.nstarts == 0
+    nstarts = 1;
+else
+    if isempty(options.nsobol); options.nsobol = options.nstarts*20; end
+    nstarts = max(1,[options.nsobol,options.nstarts,round(options.nstarts/10),1]);
+end
+
 % Multi-start optimization options
 optoptions.InitRange = [RLB; RUB];
 optoptions.InitialPoints = options.startx;
 optoptions.MidpointStart = firstSetting;
+optoptions.SobolInit = 'on';
+optoptions.SobolSeed = (options.replica-1)*nstarts(1);
 optoptions.Display = displ;
 optoptions.MaxFunEvals = [1,MaxFunEvals,RefineFunEvals,RefineFunEvals];
 optoptions.MaxIter = MaxFunEvals;
@@ -46,6 +56,7 @@ optoptions.OptimOptions = {[], localoptions, psoptions, localoptions};
 optoptions.FvalScale = 1;
 optoptions.RescaleVars = 'off';
 optoptions.Method = {'feval',options.optimizationmethod,'patternsearch',options.optimizationmethod};
+optoptions.BPSUseCacheEpochs = 2;
 
 % Save information
 optfilename = [options.fullfilename(1:end-4) '_opt.tmp'];
@@ -55,11 +66,6 @@ optoptions.SaveFile = optfilename;
 optoptions.SaveTime = (0.9 + 0.2*rand())*options.savetime;
 
 optoptions.OutputFcn = @(x,optimValues,state) outputFcn(x,optimValues,state,fout,options.modelstring,options.dataidstring,options.cnd,options.replica,firstSetting);
-if options.nstarts == 0
-    nstarts = 1;
-else
-    nstarts = max(1,[options.nstarts*20,options.nstarts,round(options.nstarts/10),1]);
-end
 vararginarray = {{'coarse',logpriorflag},{'normal',logpriorflag},{'normal',logpriorflag},{'precise',logpriorflag}};
 
 % Run multi-start optimization

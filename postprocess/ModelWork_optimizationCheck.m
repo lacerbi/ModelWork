@@ -143,7 +143,7 @@ yticks = [ymin,thresh,ymax];
 for i = 1:numel(yticks); yticklabel{i} = num2str(yticks(i)); end
 set(gca,'Xtick',xticks,'Ytick',log(yticks),'YtickLabel',yticklabel);
 
-hl = legend(['Min ' num2str(UCB) '% UCB'],'Min median','Error threshold');
+hl = legend(['Min ' num2str(ci) '% UCB'],'Min median','Error threshold');
 set(hl,'Box','off');
 
 end
