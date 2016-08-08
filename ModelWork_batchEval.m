@@ -131,7 +131,11 @@ if exist(fileinfo.fullfilename,'file')
     % job = prevrun.job;
     mbag = prevrun.mbag;
     jobdone = prevrun.jobdone;
-    fitstep = prevrun.fitstep;
+    if isempty(options.fitstep)
+        fitstep = prevrun.fitstep;
+    else
+        fitstep = options.fitstep;
+    end
         
     if jobdone && ~options.continueflag
         error(['File ' fileinfo.fullfilename ' already exists and job done.']);

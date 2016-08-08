@@ -20,6 +20,7 @@ optlist(end+1) = struct('name', 'outfile', 'type', 'string', 'default', []);
 
 %% RECOVERY AND TROUBLESHOOTING
 optlist(end+1) = struct('name', 'continueflag', 'type', 'matrix', 'default', 0);
+optlist(end+1) = struct('name', 'fitstep', 'type', 'matrix', 'default', []);
 optlist(end+1) = struct('name', 'mbag', 'type', 'string', 'default', []);
 optlist(end+1) = struct('name', 'appendchains', 'type', 'flag', 'default', 0);
 optlist(end+1) = struct('name', 'skipcompletedjobs', 'type', 'matrix', 'default', 1);
