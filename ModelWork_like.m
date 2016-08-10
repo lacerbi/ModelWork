@@ -1,5 +1,6 @@
 function [nLogL,extras] = ModelWork_like(project,X,mp,infostruct,theta,logpriorflag,trialloglikesflag,randomizeflag)
 % MODELWORK_LIKE Negative log likelihood of the parameters.
+%  NLOGL = MODELWORK_LIKE(PROJECT,X,MP,INFOSTRUCT,THETA)
 
 if nargin < 3 % Input compatible with other functions
     if isnumeric(project)                % CMAES: y = fun(x,data)

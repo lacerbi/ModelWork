@@ -31,15 +31,17 @@ if mfit.uptodate; return; end
 % Clear memory first
 clear functions;
 
-% Default options for ModelStats
-if isempty(options)
-    options.maxstoredsamples = [];  % Maximum number of stored samples
-    options.recomputesamplingmetrics = [];      % Force recomputation of log likes for LOO-CV
-    options.computemarginallike = [];   % Compute marginal likelihood from MCMC output
+% Default options
+defopts.maxstoredsamples = Inf;             % Maximum number of stored samples
+defopts.recomputesamplingmetrics = false;   % Force recomputation of log likes for LOO-CV
+defopts.computemarginallike = false;        % Compute marginal likelihood from MCMC output
+defopts.refit = false;                      % Refine maximum-likelihood fit
+
+for f = fields(defopts)'
+    if ~isfield(options,f{:}) || isempty(options.(f{:}))
+        options.(f{:}) = defopts.(f{:});
+    end
 end
-if isempty(options.maxstoredsamples); options.maxstoredsamples = Inf; end
-if isempty(options.recomputesamplingmetrics); options.recomputesamplingmetrics = 0; end
-if isempty(options.computemarginallike); options.computemarginallike = 0; end
 
 if isempty(mfit.mp) % If fields are empty, try to load data
     try
@@ -193,12 +195,33 @@ end
 % Save model parameter structure
 setupModelFun = str2func([project '_setupModel']);
 
-% Temporarily update the model parameter structure to MAP
+% Refine maximum-likelihood solution
 mfit.mp.computation = 'precise';
+
+if options.refit
+    nvars = size(mfit.maptheta,2);
+    LB = mfit.mp.bounds.LB; UB = mfit.mp.bounds.UB;
+    PLB = mfit.mp.bounds.RLB; PUB = mfit.mp.bounds.RUB;
+    optfun = @(x) nllfun(x,mfit.mp,0,0);    
+    optoptions.Display = 'off';
+    optoptions.TolX = 1e-6;
+    optoptions.TolFun = 1e-4;
+    optoptions.MaxFunEvals = 100*nvars;
+    optoptions.MaxIter = 100*nvars;
+    [xbest,fvalbest] = bps(optfun,mfit.maptheta,LB,UB,PLB,PUB,optoptions);    
+    mfit.maptheta = xbest;
+    if mfit.metrics.maploglike > -fvalbest + 0.1
+        warning('Re-optimized log likelihood value is substantially worse than the old value.');
+    end
+    fprintf('Old log likelihood: %f.\nRefitted log likelihood: %f.\n', mfit.metrics.maploglike, -fvalbest);
+    mfit.metrics.maploglike = -fvalbest;
+end
+
+% Temporarily update the model parameter structure to MAP
 [mfit.mp, exitflag] = setupModelFun(mfit.mp, mfit.maptheta);
 
 % Compute MLE/MAP and Hessian
-mfit.metrics.maploglike = -nllfun(mfit.maptheta',mfit.mp,1,0);
+mfit.metrics.maploglike = -nllfun(mfit.maptheta',mfit.mp,0,0);
 % Compute marginal likelihood and Hessian
 mfit.metrics.mapmarginallike = mfit.metrics.maploglike;
 
