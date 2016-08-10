@@ -178,7 +178,7 @@ for j = 1:nmodels
                             modelsummary.sampling.minneff(i, j, k) = min(s.sumstats.neff);
                         end
                         if isfield(s.sumstats,'mESS_chain') && ~isempty(s.sumstats.mESS_chain)
-                            modelsummary.sampling.minneff(i, j, k) = sum(s.sumstats.mESS_chain);
+                            modelsummary.sampling.multiESS(i, j, k) = sum(s.sumstats.mESS_chain);
                         end
                         modelsummary.sampling.nchains(i, j, k) = s.nchains;
                         if isfield(s.sumstats,'ks') && ~isempty(s.sumstats.ks)
