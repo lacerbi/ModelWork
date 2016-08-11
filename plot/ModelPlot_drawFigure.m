@@ -236,6 +236,7 @@ function thisplot = PrepareDataPlot(thisplot,data,source,nid,gendataflag)
                 case {'bin','hist'} % Bin data or build histogram
                     [~,pos] = histc(x, binbounds);
                     for k = 1:length(bincenters)
+                        % binfun(y(pos == k))
                         yy(iSubj,k) = binfun(y(pos == k));
                         if length(nid) == 1
                             yyerr1(k) = binfunerr1(y(pos == k));
@@ -292,7 +293,7 @@ function thisplot = PrepareDataPlot(thisplot,data,source,nid,gendataflag)
             thisplot.y = yall;
             thisplot.yerr = [];                                
     end
-    
+        
 end
 
 

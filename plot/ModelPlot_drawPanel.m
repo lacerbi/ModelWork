@@ -23,14 +23,16 @@ for iPriority = 1:numel(priorityList)
             case {'dot','dots'}
                 x = thisplot.x(:);
                 y = thisplot.y(:);
-
                 yerr = assign(thisplot, 'yerr', []); yerr = yerr(:);
+                [x,y,yerr] = removeinvalidpoints(x,y,yerr);
+
+                linecolor = assign(thisplot, 'linecolor', [0 0 0]);
                 color = assign(thisplot, 'color', [0 0 0]);
                 linewidth = assign(thisplot, 'linewidth', 1);
                 if ~isempty(yerr)
                     % herr(end+1) = errorbar(x, y, yerr, 'k', 'LineWidth', linewidth,'LineStyle','none');
                     for i = 1:numel(x)
-                        herr(end+1) = plot(x(i)*[1 1], y(i)+yerr(i)*[-1,1], 'k-', 'LineWidth', linewidth);
+                        herr(end+1) = plot(x(i)*[1 1], y(i)+yerr(i)*[-1,1], '-', 'Color', linecolor, 'LineWidth', linewidth);
                     end
                     herrsize(end+1) = assign(thisplot, 'errorbar_size', 80);
                 end
@@ -44,19 +46,33 @@ for iPriority = 1:numel(priorityList)
             case {'errorbar','errorbars'}
                 x = thisplot.x(:);
                 y = thisplot.y(:);
-
                 yerr = assign(thisplot, 'yerr', []); yerr = yerr(:);
+                [x,y,yerr] = removeinvalidpoints(x,y,yerr);
+
+                % linecolor = assign(thisplot, 'linecolor', [0 0 0]);
                 color = assign(thisplot, 'color', [0 0 0]);
                 linewidth = assign(thisplot, 'linewidth', 1);
+                errorwidth = assign(thisplot, 'errorwidth', []);
                 if ~isempty(yerr)
-                    herr(end+1) = errorbar(x, y, yerr, 'Color', color, 'LineWidth', linewidth,'LineStyle','none');
-                    herrsize(end+1) = assign(thisplot, 'errorbar_size', 80);
+                    if isempty(errorwidth)
+                        herr(end+1) = errorbar(x, y, yerr, 'Color', color, 'LineWidth', linewidth,'LineStyle','-');
+                        herrsize(end+1) = assign(thisplot, 'errorbar_size', 80);
+                    elseif errorwidth == 0                        
+                        for j = 1:numel(x)
+                            herr(end+1) = plot(x(j)*[1 1], y(j)+yerr(j)*[-1 1], 'Color', color, 'LineWidth', linewidth,'LineStyle','-');
+                        end
+                        herr(end+1) = plot(x, y, 'Color', color, 'LineWidth', linewidth,'LineStyle','-');
+                        herrsize(end+1) = assign(thisplot, 'errorbar_size', 80);
+                        
+                    end
                 end
 
             case 'line'
                 x = thisplot.x(:);
                 y = thisplot.y(:);
                 yerr = assign(thisplot, 'yerr', []); yerr = yerr(:);
+                [x,y,yerr] = removeinvalidpoints(x,y,yerr);
+                
                 if numel(x) == 1
                     x = x + [-0.5 0.5];
                     y = y*[1 1];
@@ -66,6 +82,7 @@ for iPriority = 1:numel(priorityList)
                 errColor = assign(thisplot, 'errColor', color);
                 linewidth = assign(thisplot, 'linewidth', 2);
                 linestyle = assign(thisplot, 'linestyle', '-');
+                facealpha = assign(thisplot, 'facealpha', 1);
                 if isempty(yerr) || all(isnan(errColor))
                     plot(x,y,'Color',color,'LineWidth',linewidth,'LineStyle',linestyle);
                 else
@@ -77,10 +94,12 @@ for iPriority = 1:numel(priorityList)
                         yy = [y(:)' + yerr(:)', fliplr(y(:)' - yerr(:)')];
                         
                         if all(isnan(color))
-                            fill(xx, yy, errColor, 'EdgeColor', 'none');                       
+                            h = fill(xx, yy, errColor, 'EdgeColor', 'none');
+                            set(h,'FaceAlpha',facealpha);
                             % shadedErrorBar(x,y,yerr,{'Color',errColor,'LineWidth',linewidth,'LineStyle','none'},1,0,1);
                         else
-                            fill(xx, yy, errColor, 'EdgeColor', color);                 
+                            h = fill(xx, yy, errColor, 'EdgeColor', color);                 
+                            set(h,'FaceAlpha',facealpha);
                             % shadedErrorBar(x,y,yerr,{'Color',errColor,'LineWidth',linewidth,'LineStyle',linestyle},1,0,1);
                         end
                     end
@@ -211,6 +230,7 @@ end
 
 end
 
+%--------------------------------------------------------------------------
 %ASSIGN Check if a struct field exists and if nonempty return its value, 
 %       otherwise return default
 function value = assign(this, field, default)
@@ -219,4 +239,13 @@ function value = assign(this, field, default)
     else
         value = default;
     end
+end
+
+%--------------------------------------------------------------------------
+function [x,y,yerr] = removeinvalidpoints(x,y,yerr)
+%REMOVEINVALIDPOINTS Remove Infs and NaNs
+    idx = ~isfinite(x) | ~isfinite(y);
+    x(idx) = [];
+    y(idx) = [];
+    yerr(idx) = [];
 end
