@@ -73,6 +73,17 @@ for iPriority = 1:numel(priorityList)
                 yerr = assign(thisplot, 'yerr', []); yerr = yerr(:);
                 [x,y,yerr] = removeinvalidpoints(x,y,yerr);
                 
+                interp = assign(thisplot, 'interp', 0);
+                if interp
+                    [x,ord] = sort(x);
+                    y = y(ord);
+                    if ~isempty(yerr); yerr = yerr(ord); end                    
+                    xnew = linspace(x(1),x(end),1e3);
+                    y = interp1(x,y,xnew,'pchip');
+                    if ~isempty(yerr); yerr = interp1(x,yerr,xnew,'spline'); end
+                    x = xnew;
+                end
+                
                 if numel(x) == 1
                     x = x + [-0.5 0.5];
                     y = y*[1 1];
@@ -247,5 +258,5 @@ function [x,y,yerr] = removeinvalidpoints(x,y,yerr)
     idx = ~isfinite(x) | ~isfinite(y);
     x(idx) = [];
     y(idx) = [];
-    yerr(idx) = [];
+    if ~isempty(yerr); yerr(idx) = []; end
 end
