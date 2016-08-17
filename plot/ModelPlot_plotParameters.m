@@ -1,5 +1,13 @@
-function ModelPlot_plotParameters(project,varargin)
+function minq = ModelPlot_plotParameters(project,varargin)
 %MODELPLOT_PLOTPARAMETERS Plot model parameters.
+
+if isscalar(varargin{end}) && ...
+    (isnumeric(varargin{end}) || islogical(varargin{end}))
+        noplot = varargin{end};
+        varargin(end) = [];
+else
+        noplot = 0;    
+end
 
 mfit = [];
 for i = 1:numel(varargin)
@@ -50,53 +58,73 @@ colors = [  ...
 
 
 nparams = numel(params);
+minq = zeros(1,nparams);
 
 for j = 1:nparams
-    subplot(gridsize(nparams,1),gridsize(nparams,2),j);
-    for i = 1:numel(mfit)
-        idx = find(strcmp(params{j},mfit{i}.mp.params),1);
-        if isempty(idx); continue; end
-        samples = mfit{i}.sampling.samples(:,idx);
-        bounds = [mfit{i}.mp.bounds.LB(idx),mfit{i}.mp.bounds.UB(idx)];
-        
-        % Plot histogram of posterior over parameter
-        nbins = 40;
-        xx = linspace(min(samples),max(samples),nbins);
-        dx = xx(2)-xx(1);
-        pdf = histc(samples,xx);
-        xx = [xx(1)-sqrt(eps), xx, xx(end)+sqrt(eps)];
-        pdf = [0; pdf/sum(pdf)/dx; 0];
 
-        xlim(bounds);
-        plot(xx,pdf,'-','Color',colors(i,:),'LineWidth',1);
-        hold on;        
+    if ~noplot
+        subplot(gridsize(nparams,1),gridsize(nparams,2),j);
+        for i = 1:numel(mfit)
+            idx = find(strcmp(params{j},mfit{i}.mp.params),1);
+            if isempty(idx); continue; end
+            samples = mfit{i}.sampling.samples(:,idx);
+            bounds = [mfit{i}.mp.bounds.LB(idx),mfit{i}.mp.bounds.UB(idx)];
+
+            % Plot histogram of posterior over parameter
+            nbins = 40;
+            xx = linspace(min(samples),max(samples),nbins);
+            dx = xx(2)-xx(1);
+            pdf = histc(samples,xx);
+            xx = [xx(1)-sqrt(eps), xx, xx(end)+sqrt(eps)];
+            pdf = [0; pdf/sum(pdf)/dx; 0];
+
+            xlim(bounds);
+            plot(xx,pdf,'-','Color',colors(i,:),'LineWidth',1);
+            hold on;
+        end
+
+        textstring = params{j};
+        textstring(textstring == '_') = '-'; 
+        xlabel(textstring);
+        ylabel('Probability density');
+
+        set(gca,'TickDir','out');
+        box off;
+    end
+
+    % Compute overlap metric
+    for ii = 1:numel(mfit)-1
+        idx = find(strcmp(params{j},mfit{ii}.mp.params),1);
+        if isempty(idx); continue; end
+        for jj = ii+1:numel(mfit)
+            idx2 = find(strcmp(params{j},mfit{jj}.mp.params),1);
+            if isempty(idx2); continue; end
+            X = mfit{ii}.sampling.samples(:,idx);
+            Y = mfit{jj}.sampling.samples(:,idx2);
+            minq(j) = max(minq(j),minqoverlap(X,Y));            
+        end
     end
     
-    textstring = params{j};
-    textstring(textstring == '_') = '-'; 
-    xlabel(textstring);
-    ylabel('Probability density');
-    
-    set(gca,'TickDir','out');
+end
+
+if ~noplot
+    set(gcf,'Color','w');
+
+    % Write legend
+    subplot(gridsize(nparams,1),gridsize(nparams,2),prod(gridsize(nparams,:)));
+    for i = 1:numel(mfit)
+        plot([0 0], [0 0], '-', 'Color',colors(i,:),'LineWidth',1); hold on;
+        names{i} = VestBMS_getModelName(mfit{i}.model);
+    end
+
+    hl = legend(names{:});
+    legend('boxoff');
+    set(hl,'Location','NorthWest');
     box off;
-    
+    axis off;
 end
 
-set(gcf,'Color','w');
-
-% Write legend
-subplot(gridsize(nparams,1),gridsize(nparams,2),prod(gridsize(nparams,:)));
-for i = 1:numel(mfit)
-    plot([0 0], [0 0], '-', 'Color',colors(i,:),'LineWidth',1); hold on;
-    names{i} = VestBMS_getModelName(mfit{i}.model);
 end
-
-hl = legend(names{:});
-legend('boxoff');
-set(hl,'Location','NorthWest');
-box off;
-axis off;
-
 
 
 
