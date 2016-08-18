@@ -1,25 +1,94 @@
-function [nLogL,extras] = ModelWork_like(project,X,mp,infostruct,theta,logpriorflag,trialloglikesflag,randomizeflag)
-% MODELWORK_LIKE Negative log likelihood of the parameters.
-%  NLOGL = MODELWORK_LIKE(PROJECT,X,MP,INFOSTRUCT,THETA)
+function [nLogL,extras] = ModelWork_like(varargin)
+%MODELWORK_LIKE Negative log likelihood of the parameters.
+%   NLOGL = MODELWORK_LIKE(PROJECT,X,MP,INFOSTRUCT,THETA) returns the
+%   negative log likelihood of dataset X with model parameter structure MP
+%   and extra structure INFOSTRUCT, evaluate at parameter THETA, for project
+%   PROJECT.
+%
+%   NLOGL = MODELWORK_LIKE(PROJECT,MFIT,THETA) returns the negative log 
+%   likelihood for model in MFIT evaluated at parameter THETA. If THETA is
+%   empty, the log likelihood is evaluated at the maximum-likelihood solution.
+%
+%   NLOGL = MODELWORK_LIKE(MFIT,THETA) or
+%   NLOGL = MODELWORK_LIKE(THETA,MFIT) is a compact way to call the
+%   function, compatible with external programs such as CMAES and MCS.
+%   MFIT needs to have an additional field MFIT.project which contains the
+%   project name.
+%
+%   NLOGL = MODELWORK_LIKE(...,LOGPRIORFLAG,TRIALLOGLIKESFLAG,RANDOMIZEFLAG) 
+%   sets the flags (all zero by default). LOGPRIORFLAG adds the log prior.
+%   TRIALLOGLIKESFLAG returns log likelihood per trial. RANDOMIZEFLAG adds
+%   randomization to log likelihood computation.
+%
+%   [NLOGL,EXTRAS] = MODELWORK_LIKE(...)  returns additional information
+%   in structure EXTRAS.
+%
+%   See also MODELWORK_SETUPMODEL.
 
-if nargin < 3 % Input compatible with other functions
-    if isnumeric(project)                % CMAES: y = fun(x,data)
-        theta = project;
-        mp = X.mp;
-        infostruct = X.infostruct;
-        if isfield(X,'project'); project = X.project; else project = X.prefix; end        
-        X = X.X;
-    else                                % MCS: y = fun(data,x)
-        theta = X;
-        X = project.X;
-        mp = project.mp;
-        infostruct = project.infostruct;
-        if isfield(project,'project'); project = project.project; else project = project.prefix; end        
+% Initialize variables
+project = [];
+mfit = [];
+X = [];
+mp = [];
+infostruct = [];
+theta = [];
+logpriorflag = [];
+trialloglikesflag = [];
+randomizeflag = [];
+
+% Standard input format: PROJECT,MFIT,THETA or PROJECT,X,MP,INFOSTRUCT,THETA
+if ischar(varargin{1})  % project
+    project = varargin{1};
+    % First input is a MFIT struct
+    if all(isfield(varargin{2},{'X','mp','infostruct','maptheta'}))
+        mfit = varargin{2};
+        if nargin > 2
+            theta = varargin{3};
+            if ~isempty(theta) && (numel(theta) ~= numel(mfit.maptheta))
+                error('THETA does not have the right dimension.');
+            end
+        end
+        idx = 4;
+    else
+        X = varargin{2};
+        mp = varargin{3};
+        infostruct = varargin{4};
+        theta = varargin{5};
+        idx = 6;
+    end
+    % Read additional flags
+    if nargin >= idx; logpriorflag = varargin{idx}; end
+    if nargin >= idx+1; trialloglikesflag = varargin{idx+1}; end
+    if nargin >= idx+2; randomizeflag = varargin{idx+2}; end
+    
+% Alternative input format: MFIT,THETA or THETA,MFIT
+elseif nargin < 3 % Input compatible with other functions
+    if isnumeric(varargin{1})               % CMAES: y = fun(x,data)
+        theta = varargin{1};
+        mfit = varargin{2};
+    else                                    % MCS: y = fun(data,x)
+        mfit = varargin{1};
+        theta = varargin{2};
     end
 end
-if nargin < 6 || isempty(logpriorflag); logpriorflag = 0; end
-if nargin < 7 || isempty(trialloglikesflag); trialloglikesflag = 0; end
-if nargin < 8 || isempty(randomizeflag); randomizeflag = 0; end
+
+if ~isempty(mfit)
+    X = mfit.X;
+    mp = mfit.mp;
+    infostruct = mfit.infostruct;
+    if isempty(project)
+        if isfield(mfit,'project'); project = mfit.project;
+        elseif isfield(mfit,'prefix'); project = mfit.prefix;
+        else
+            error('MFIT structure should have a ''project'' field if calling MODELWORK_LIKE with only two arguments.');
+        end
+    end
+    if isempty(theta); theta = mfit.maptheta; end
+end
+
+if isempty(logpriorflag); logpriorflag = 0; end
+if isempty(trialloglikesflag); trialloglikesflag = 0; end
+if isempty(randomizeflag); randomizeflag = 0; end
 
 INFPENALTY = -log(1e-6);
 
