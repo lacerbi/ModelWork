@@ -1,13 +1,19 @@
-function modelsummary = ModelWork_summary(mbag)
+function [modelsummary,mbag] = ModelWork_summary(varargin)
 % MODELWORK_SUMMARY computes summary of model fits.
 %
 % MODELSUMMARY = MODELWORK_SUMMARY(MBAG) merges batches with identifiers in 
 % list ID returning the merged model bag MBAG.
 %
 
-if nargin < 1
-    help ModelWork_summary;
-    return;
+switch nargin
+    case 0
+        help ModelWork_summary;
+        return;
+    case 1  % Model bag
+        mbag = varargin{1};
+    case 2  % Array of model fits
+        project = varargin{1};
+        mbag = ModelBag_add([],varargin{2},[],project);
 end
     
 modellist = []; dataidlist = [];    cndlist = [];
