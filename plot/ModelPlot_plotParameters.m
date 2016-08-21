@@ -101,9 +101,16 @@ for j = 1:nparams
             if isempty(idx2); continue; end
             X = mfit{ii}.sampling.samples(:,idx);
             Y = mfit{jj}.sampling.samples(:,idx2);
-            minq(j) = max(minq(j),minqoverlap(X,Y));            
+            minq(j) = max(minq(j),minqoverlap(X,Y));
         end
     end
+    
+    X = [];
+    for ii = 1:numel(mfit)
+        idx = find(strcmp(params{j},mfit{ii}.mp.params),1);
+        if ~isempty(idx); X{end+1} = mfit{ii}.sampling.samples(:,idx); end
+    end
+    minq(j) = compatibility(X{:});
     
 end
 
