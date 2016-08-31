@@ -1,10 +1,10 @@
-function exitflag = ModelWork_samplingCheck(mbag,method,type,nreplicas)
+function exitflag = ModelWork_samplingCheck(mbag,method,type,replicas)
 % MODELWORK_SAMPLINGCHECK check sampling results.
 %
 
 if nargin < 2 || isempty(method); method = 'plot'; end
 if nargin < 3; type = []; end
-if nargin < 4 || isempty(nreplicas); nreplicas = 3; end
+if nargin < 4 || isempty(replicas); replicas = 1:3; end
 
 switch lower(method(1))
     case 'p'
@@ -61,7 +61,7 @@ if info.writeflag
         model = packuint(mfit{i}.model);
         dataid = packuint(mfit{i}.dataid);
         cnd = mfit{i}.cnd;
-        for rep = 1:nreplicas
+        for rep = replicas
             jobfilename = [num2str(iProc) '.job'];
             fout = fopen(jobfilename,'w');
             fprintf(fout,'%d %s %s %s %s\n',type,model,dataid,numarray2str(cnd),numarray2str(rep));
