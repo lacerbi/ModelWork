@@ -44,7 +44,7 @@ if ischar(varargin{1})  % project
         mfit = varargin{2};
         if nargin > 2
             theta = varargin{3};
-            if ~isempty(theta) && (numel(theta) ~= numel(mfit.maptheta))
+            if ~isempty(theta) && (size(theta,2) ~= size(mfit.maptheta,2))
                 error('THETA does not have the right dimension.');
             end
         end
@@ -91,6 +91,18 @@ if isempty(trialloglikesflag); trialloglikesflag = 0; end
 if isempty(randomizeflag); randomizeflag = 0; end
 
 INFPENALTY = -log(1e-6);
+
+if size(theta,1) > 1 && size(theta,2) > 1 && nargout == 1
+    % Vectorized call (EXTRAS not accepted)
+    N = size(theta,1);    
+    tmp = ModelWork_like(project,X,mp,infostruct,theta(1,:),logpriorflag,trialloglikesflag,randomizeflag);
+    nLogL = NaN(N,numel(tmp));
+    nLogL(1,:) = tmp;
+    for i = 2:N
+        nLogL(i,:) = ModelWork_like(project,X,mp,infostruct,theta(i,:),logpriorflag,trialloglikesflag,randomizeflag);
+    end
+    return;
+end
 
 theta = theta(:)';
 extras = [];

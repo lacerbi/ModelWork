@@ -1,7 +1,8 @@
-function [fig,gendata] = ModelPlot_drawFigure(fig,data,mfit,ngen)
+function [fig,gendata] = ModelPlot_drawFigure(fig,data,mfit,ngen,options)
 
 if nargin<3; mfit = []; end
 if nargin<4; ngen = 30; end % Fake datasets per subject
+if nargin<5; options = []; end
 
 % figure();
 set(gcf, 'Color', 'w');
@@ -23,7 +24,7 @@ if ~isempty(mfit)
     
     % Fake data generation function and analytics function
     gendataFun = str2func([project '_gendata']);
-    analyticsFun = str2func([project '_analytics']);    
+    analyticsFun = str2func([project '_analytics']); 
     gendata = []; % Fake data struct
     gendata.datamats = [];
     gendata.data = [];
@@ -39,7 +40,9 @@ if ~isempty(mfit)
         gendata.datamats = mfit;        
     % Passing an array of MFIT objects
     elseif isfield(mfit{1}, 'mp') && length(mfit) > 1
+        fprintf('Generating subjects'' datasets: ');
         for i = 1:length(mfit)
+            fprintf('%d..', i);
             temp = gendataFun(ngen,mfit{i});
             if isnumeric(temp{1})
                 gendata.datamats{i} = temp;
@@ -48,12 +51,13 @@ if ~isempty(mfit)
                 gendata.data{i} = temp;
             end
         end
+        fprintf('\n');
     end
     
     % Generate full datasets
     for i = 1:length(gendata.datamats)
         if isempty(gendata.data) || isempty(gendata.data{i})
-            gendata.data{i} = analyticsFun(gendata.datamats{i});
+            gendata.data{i} = analyticsFun(gendata.datamats{i},options);
         end
     end
     clear mfit temp;

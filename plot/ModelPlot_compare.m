@@ -15,6 +15,13 @@ colormap(gray);
 modelnumber = 1:size(modelsummary.models,1);
 metricstring = upper(metric);
 
+if ischar(baseline)
+    baseline = find(strcmp(baseline,modelsummary.modelnames));
+    if isempty(baseline) || ~isscalar(baseline)
+        error('BASELINE model name should be present and unique in the model sate.');
+    end
+end
+
 if baseline == 0
     y = modelsummary.(metric);
     modelnames = modelsummary.modelnames;
@@ -45,17 +52,16 @@ end
 if groupflag
     col = 0.7*[1 1 1];
     
-    
     bar(y,'FaceColor',col,'EdgeColor','none'); hold on;
     for i = 1:nmodels
         plot(i*[1 1], y(i)+[-1,1]*yerr(i),'k','LineWidth',1);
     end
     xlabel('Models');
     ylabel(['\Delta' metricstring])
-    set(gca,'XTickLabel',modelnames);
+    set(gca,'XTick',1:numel(modelnames),'XTickLabel',modelnames);
     
     text(0.05,1,['n = ' num2str(nsubjs)],'Units','Normalized');
-    
+    xticklabel_rotate([],90);
 else
 
     bar(y);
