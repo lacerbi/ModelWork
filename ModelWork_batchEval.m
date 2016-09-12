@@ -46,7 +46,7 @@ end
 
 % Load default options (general and project-specific)
 optlist = ModelWork_defaults(project);
-options = parseoptions(varargin,optlist);
+options = parseopts(varargin,optlist);
     
 % Run each job sequentially
 for iProc = 1:length(jobs)    

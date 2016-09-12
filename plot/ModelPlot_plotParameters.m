@@ -71,10 +71,15 @@ for j = 1:nparams
             bounds = [mfit{i}.mp.bounds.LB(idx),mfit{i}.mp.bounds.UB(idx)];
 
             % Plot histogram of posterior over parameter
-            nbins = 40;
-            xx = linspace(min(samples),max(samples),nbins);
-            dx = xx(2)-xx(1);
-            pdf = histc(samples,xx);
+            if 0
+                nbins = 40;
+                xx = linspace(min(samples),max(samples),nbins);
+                dx = xx(2)-xx(1);
+                pdf = histc(samples,xx);
+            else
+                [b,pdf,xx] = kde(samples,2^12,min(samples),max(samples));
+                dx = xx(2)-xx(1);
+            end
             xx = [xx(1)-sqrt(eps), xx, xx(end)+sqrt(eps)];
             pdf = [0; pdf/sum(pdf)/dx; 0];
 

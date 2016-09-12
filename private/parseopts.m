@@ -1,7 +1,7 @@
-function options = parseoptions(optstring,optlist,oldoptions)
-%PARSEOPTIONS parses a list of strings and returns an options struct.
+function options = parseopts(optstring,optlist,oldoptions)
+%PARSEOPTS parses a list of strings and returns an options struct.
 %
-%   OPTIONS = PARSEOPTIONS(OPTSTRING,OPTLIST) parses the list of strings
+%   OPTIONS = PARSEOPTS(OPTSTRING,OPTLIST) parses the list of strings
 %   and values OPTSTRING (typically a VARARGIN) using the options in 
 %   OPTLIST (see below) and returns a struct OPTIONS.
 %
@@ -10,7 +10,7 @@ function options = parseoptions(optstring,optlist,oldoptions)
 %      'type'       'flag','matrix','string' (flags can take values 0 or 1)
 %      'default'    default value
 %
-%   OPTIONS = PARSEOPTIONS(OPTSTRING,OPTLIST,OLDOPTIONS) uses the options
+%   OPTIONS = PARSEOPTS(OPTSTRING,OPTLIST,OLDOPTIONS) uses the options
 %   in OLDOPTIONS instead of the defaults.
 
 if nargin < 3; oldoptions = []; end

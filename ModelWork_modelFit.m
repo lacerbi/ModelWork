@@ -24,7 +24,7 @@ end
 
 % Load options (MODELFIT can be called independently of BATCHEVAL)
 optlist = ModelWork_defaults(project);
-options = parseoptions(varargin,optlist,options);
+options = parseopts(varargin,optlist,options);
 
 % Store model fit method
 options = setoptions(options,'fitmethod',method,0);

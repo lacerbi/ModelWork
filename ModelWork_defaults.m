@@ -2,12 +2,12 @@ function optlist = ModelWork_defaults(project)
 %MODELWORK_DEFAULTS Return list of default options.
 %
 %   OPTLIST = MODELWORK_DEFAULTS() returns the standard default options
-%   list. OPTLIST is a struct array (see PARSEOPTIONS for description).
+%   list. OPTLIST is a struct array (see PARSEOPTS for description).
 %
 %   OPTLIST = MODELWORK_DEFAULTS(PROJECT) also loads the default options
 %   list for a given project.
 %
-%   See also PARSEOPTIONS.
+%   See also PARSEOPTS.
 
 if nargin < 1; project = []; end
 

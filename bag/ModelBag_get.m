@@ -6,12 +6,34 @@ function [mfit,idx] = ModelBag_get(mbag,dataid,model,cnd)
 %   model bag MBAG. DATAID, MODEL and CND may specify multiple datasets, 
 %   models or conditions, in which case MFIT is an array of structs.
 %
+%   MFIT = MODELBAG_GET(MBAG, MODEL) returns model fit MODEL where model
+%   can be a model vector or model name, assuming default subjects and
+%   conditions. If MODEL is a scalar, it picks the MODEL-th model in the
+%   generated model summary.
+%
 %   [MFIT,I] = MODELBAG_GET(...) also returns the index I of the model 
 %   struct in the model bag.
 
 if nargin < 1
     help ModelBag_get;
     return;
+end
+
+if nargin < 3
+    modelsummary = ModelWork_summary(mbag);
+    model = dataid;
+    dataid = modelsummary.dataid;
+    cnd = modelsummary.cnd;
+    
+    if ischar(model)
+        idx = find(strcmp(model,modelsummary.modelnames));
+        if isempty(idx) || ~isscalar(idx)
+            error(['Cannot find unique match for model ' model ' in model summary.']);
+        end
+        model = modelsummary.models(idx,:);
+    elseif isscalar(model)
+        model = modelsummary.models(model,:);        
+    end
 end
 
 if ~iscell(dataid)  % Cellify

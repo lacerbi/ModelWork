@@ -53,7 +53,7 @@ for i = 1:length(mfit)
         
         mm = mfit{i};
         optlist = ModelWork_defaults(project);
-        options = parseoptions([],optlist);        
+        options = parseopts([],optlist);        
         
         fields = {'type','model','dataid','cnd'};
         for iField = 1:length(fields)

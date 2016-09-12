@@ -30,7 +30,7 @@ if verbose; fprintf('Loading default options...\n'); end
 
 %% Default options
 optlist = ModelWork_defaults(project);
-options = parseoptions(varargin,optlist);
+options = parseopts(varargin,optlist);
 
 if verbose; fprintf('Loading model-dependent instructions...\n'); end
 

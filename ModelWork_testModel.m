@@ -6,7 +6,7 @@ clear functions;
 if ischar(data); data = load(data); end 
 
 optlist = ModelWork_defaults(project);
-options = parseoptions(varargin,optlist);
+options = parseopts(varargin,optlist);
 
 % Initialize project options according to job TYPE
 defaultsFun = str2func([project '_defaults']);
