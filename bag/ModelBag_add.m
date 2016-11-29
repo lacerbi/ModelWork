@@ -1,21 +1,20 @@
 function mbag = ModelBag_add(mbag,m,method,project,data)
 % MODELBAG_ADD add a model fit to a model bag.
-%
-%   MODELBAG = MODELBAG_ADD(MBAG,M) adds M to the model bag MBAG. M can be
+%   MBAG = MODELBAG_ADD(MBAG,M) adds M to the model bag MBAG. M can be
 %   a single fit or another modelbag struct. If MBAG is the empty object,
 %   create a new model bag. M can be also a vector of fits.
 %
-%   MODELBAG = MODELBAG_ADD(MBAG,M,METHOD) specifies the method to use
+%   MBAG = MODELBAG_ADD(MBAG,M,METHOD) specifies the method to use
 %   with duplicate models:
 %      'e'  error               give an error message
 %      'm'  merge (default)     merge models and chains
 %      'r'  replace             replace original model fit in MBAG with M
 %      's'  skip                keep original model fit in MBAG
 %
-%   MODELBAG = MODELBAG_ADD(MBAG,M,METHOD,PROJECT) passes project name 
+%   MBAG = MODELBAG_ADD(MBAG,M,METHOD,PROJECT) passes project name 
 %   PROJECT to a new model bag.
 %
-%   MODELBAG = MODELBAG_ADD(MBAG,M,METHOD,PROJECT,DATA) passes dataset DATA
+%   MBAG = MODELBAG_ADD(MBAG,M,METHOD,PROJECT,DATA) passes dataset DATA
 %   to a new model bag.
 
 TABLESIZE = 9973;                   % Table size for hash indexing

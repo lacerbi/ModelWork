@@ -11,7 +11,7 @@ panelgraph = assign(fig, 'panelgraph', 1:length(fig.panels));
 intborder = assign(fig, 'intborder', [0.025, 0.1]);
 extborder = assign(fig, 'extborder', [0.1, 0.1]);
 if numel(fig.panels) > 1
-    fig.hg = multigraph(panelgraph, intborder, extborder); % This function must be rewritten!
+    fig.hg = plotify(panelgraph, 'Gutter', intborder, 'Margins', extborder);
 else
     fig.hg = [];
 end

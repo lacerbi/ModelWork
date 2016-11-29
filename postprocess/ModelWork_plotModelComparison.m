@@ -13,6 +13,7 @@ options.bmsorder = 0;
 options.ssorder = 0;
 options.deviance = [];          % Is the metric specified in deviance units?
 options.factors = [];
+options.maxmodels = 20;         % Maximum # models shown
 
 % Parse variable arguments
 options = parseoptions(options,varargin{:});
@@ -40,11 +41,10 @@ if plottype == 3; bmsorder = 1; end
 
 fontsize = 14;
 axesfontsize = 10;
+MaxModels = options.maxmodels;
 
 height = 1000;
 bms_precomputed = 0;
-
-MAXMODELS = 20; % Maximum number of models shown on the table
 
 set(gcf, 'Color', 'w');
 box off;
@@ -225,7 +225,7 @@ switch lower(plottype(1:3))
         % Cap maximum difference, for visualization
         tab(tab > maxscore) = maxscore;
 
-        if size(tab, 2) > MAXMODELS; tab = tab(:, 1:MAXMODELS); end
+        if size(tab, 2) > MaxModels; tab = tab(:, 1:MaxModels); end
         
         ss = 1:size(tab, 1);
         for i = 1:size(tab, 1)
@@ -291,7 +291,7 @@ switch lower(plottype(1:3))
             xrlimit = 1; % x-axis limit
         end
         
-        if size(tab, 2) > MAXMODELS; tab = tab(:, 1:MAXMODELS); end
+        if size(tab, 2) > MaxModels; tab = tab(:, 1:MaxModels); end
 
         % Remove ticks
         % patch([0.1 20 20 0.1], [-size(tab, 2) -size(tab, 2) -0.6 -0.6], [1 1 1], 'EdgeColor', 'none');
@@ -301,7 +301,7 @@ switch lower(plottype(1:3))
         % colmap = flipud(colormap);
         for i = 1:size(tab, 2)
             hb(i) = barh(-i, tab(i), 0.8);
-            colindex = 1 + floor(min([tab(i)/maxscore, 1])*(size(colmap, 1)-1));        
+            colindex = max(1,1 + floor(min([tab(i)/maxscore, 1])*(size(colmap, 1)-1)));
             set(hb(i), 'FaceColor', colmap(colindex, :));
         end
         
