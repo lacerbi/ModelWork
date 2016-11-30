@@ -13,10 +13,14 @@ options.bmsorder = 0;
 options.bmsplot = 'post';       % BMS plot: 'post', 'xp', 'pxp'
 options.ssorder = 0;
 options.deviance = [];          % Is the metric specified in deviance units?
-options.factors = [];
+options.factors = [];           % Factors
+options.factornames = [];       % Factor names
+options.factorfixed = 0;        % One factor is fixed
 options.maxmodels = 20;         % Maximum # models shown
 options.nsamples = 1e6;         % Samples used in BMS
 options.threshold = 5;          % Score threshold
+options.plot = 1;               % Plot graph
+options.labelxticks = 1;        % Put model names on x axis
 
 % Parse variable arguments
 options = parseoptions(options,varargin{:});
@@ -30,8 +34,12 @@ bmsalgorithm = options.bmsalgorithm;
 bmsorder = options.bmsorder;
 bmsplot = options.bmsplot;
 factors = options.factors;
+factornames = options.factornames;
+factorfixed = options.factorfixed;
 nsamples = options.nsamples;
 threshold = options.threshold;
+plotflag = options.plot;
+labelxticks = options.labelxticks;
 
 if isempty(modellist); modellist = modelsummary.models; end
 
@@ -140,7 +148,6 @@ if isstruct(bms) && isfield(bms, 'alpha0')
     modelstr = modelnames;
     alpha0 = bms.alpha0;
     lme = bms.lme;
-    % tab = devmult*log(g);
     tab = log(g);
     if ~strcmpi(metric, bms.metric)
         warning(['Current metric (' upper(metric) ') differs from stored BMS metric (' upper(bms.metric) ').']);
@@ -158,13 +165,11 @@ elseif do_BMS
             bms_smpl = [];
         case 's'    % Sampling
             error('Sampling BMS currently not supported.');
-            % [exp_r,xp,g,bms_smpl] = gen_BMS_alpha(tab_adj,[],'sparse',[]);
-            [exp_r,xp,g,bms_smpl] = gen_BMS(tab_adj,[],'sparse',[]);
-            alpha = exp_r;
+%             [exp_r,xp,g,bms_smpl] = gen_BMS(tab_adj,[],'sparse',[]);
+%             alpha = exp_r;
         otherwise
             error('Unknown algorithm for Bayesian Model Selection. Use either ''V''ariational inference or ''S''ampling (default ''V'')');
     end
-    % tab = devmult*log(g);
     tab = log(g);
 end
 
@@ -238,6 +243,9 @@ else
 
 end
 
+% Done if not plotting
+if ~plotflag; return; end
+
 %% Plot results of model comparison
 
 hold on;
@@ -288,7 +296,12 @@ switch lower(plottype(1:3))
         set(gca, 'FontSize', axesfontsize, 'FontName', 'Arial');
 
         for i = 1:length(ss); xticklabel{i} = num2str(ssorder(i)); end
-        set(gca, 'Xtick', 1.5:1:length(ss)+1, 'XtickLabel', xticklabel);
+        set(gca, 'Xtick', 1.5:1:length(ss)+1);
+        if labelxticks
+            set(gca, 'XtickLabel', xticklabel); 
+        else
+            set(gca, 'XtickLabel', '');
+        end
 
         for i = 1:Nk
             yticklabel{Nk-i+1} = modelstr{i};
@@ -413,12 +426,16 @@ switch lower(plottype(1:3))
         
         horizontalplot = 0;
         
-        switch lower(bmsalgorithm)
+        switch lower(bmsalgorithm(1))
             case 'v'
                 
                 % Add alpha levels of each model to each feature
                 alpha_fac = sum(bsxfun(@times, bms.alpha, factors),2)';
                 alpha0_fac = sum(bsxfun(@times, bms.alpha0, factors),2)';
+                
+                nonzero = find(alpha_fac > 0);
+                alpha_fac = max(alpha_fac, sqrt(eps));
+                alpha0_fac = max(alpha0_fac, sqrt(eps));
                         
                 % Compute posterior summed over factors
                 g_fac = zeros(Ns, Nfactors);
@@ -427,17 +444,17 @@ switch lower(plottype(1:3))
                     g_fac(:,f) = sum(bsxfun(@times, bms.g, factors_norm(f,:)), 2);
                     idx = logical(factors_norm(f,:));
                     maxlme = max(lme(:,idx),[],2);
-                    lme_fac(:,f) = log(sum(bsxfun(@times,factors_norm(f,idx)/sum(factors_norm(f,idx)),exp(bsxfun(@minus,lme(:,idx),maxlme))),2)) + maxlme;
+                    if isempty(maxlme); maxlme = 0; end
+                    lme_fac(:,f) = log(sum(bsxfun(@times,factors_norm(f,idx)/sum(factors_norm(f,idx),2),exp(bsxfun(@minus,lme(:,idx),maxlme))),2)) + maxlme;
                 end
+                
+                lme_fac(isinf(lme_fac)) = -(1/sqrt(eps));
                 
                 % Compute protected exceedance probability for each factor
                 [xp,bor,pxp] = spm_dirichlet_exceedance_fast(alpha_fac, nsamples, lme_fac, g_fac, alpha0_fac);
 
-%                 tmp = bsxfun(@minus, lme_fac, max(lme_fac,[],2));
-%                 bsxfun(@rdivide, exp(tmp), sum(exp(tmp),2))
-%                 xp
-%                 bor
-%                 pxp
+                 tmp = bsxfun(@minus, lme_fac, max(lme_fac,[],2));
+                 bsxfun(@rdivide, exp(tmp), sum(exp(tmp),2))
                 
                 % 'Bayesian' p-value
                 pval = 1 - pxp;
@@ -456,40 +473,47 @@ switch lower(plottype(1:3))
                         tabse = sqrt(alpha_fac.*(sum(alpha_fac)-alpha_fac)/(sum(alpha_fac)^2*(sum(alpha_fac)+1)));
                 end
                 
+                if factorfixed
+                    tab = zeros(size(tab));
+                    tab(factorfixed) = 1;
+                    tabse = zeros(size(tab));
+                    nonzero = factorfixed;
+                end
+                
                 nonfeatures = (alpha_fac == 0);
                 tab(nonfeatures) = []; tabse(nonfeatures) = [];
                 
             case 's' % Sampling                
                 error('Sampling method currently not supported.');
                 
-                exp_r = zeros(size(bms.smpl.r,1), length(modelgroups));
-                for iModel = 1:size(models, 1)
-                    model = models(iModel,:);
-                    flag = zeros(1, length(modelgroups));
-                    for iGroup = 1:length(modelgroups)
-                        if any(all(bsxfun(@eq, model, modelgroups{iGroup}), 2))
-                            flag(iGroup) = 1;
-                        end
-                    end
-                    % Sum contributions of current model
-                    exp_r = exp_r + bsxfun(@times,bms.smpl.r(:, iModel),flag)/sum(flag);
-                end
-                
-                % Compute posterior expected feature frequency and SD
-                tab = mean(exp_r,1)./sum(mean(exp_r,1));
-                tabse = std(exp_r,[],1);
-        
-                nonfeatures = (tab == 0);
-                tab(nonfeatures) = []; tabse(nonfeatures) = [];
-                
-                % Compute excess probability (i.e., the probability of being the 
-                % most likely component)
-                [~,iMax] = max(exp_r,[],2);
-                for iGroup = 1:length(modelgroups)
-                    xp(iGroup) = sum(iMax == iGroup)/size(exp_r,1);
-                end
-                pval = 1 - xp;
-                xrlimit = 1; % x-axis limit
+%                 exp_r = zeros(size(bms.smpl.r,1), length(modelgroups));
+%                 for iModel = 1:size(models, 1)
+%                     model = models(iModel,:);
+%                     flag = zeros(1, length(modelgroups));
+%                     for iGroup = 1:length(modelgroups)
+%                         if any(all(bsxfun(@eq, model, modelgroups{iGroup}), 2))
+%                             flag(iGroup) = 1;
+%                         end
+%                     end
+%                     % Sum contributions of current model
+%                     exp_r = exp_r + bsxfun(@times,bms.smpl.r(:, iModel),flag)/sum(flag);
+%                 end
+%                 
+%                 % Compute posterior expected feature frequency and SD
+%                 tab = mean(exp_r,1)./sum(mean(exp_r,1));
+%                 tabse = std(exp_r,[],1);
+%         
+%                 nonfeatures = (tab == 0);
+%                 tab(nonfeatures) = []; tabse(nonfeatures) = [];
+%                 
+%                 % Compute excess probability (i.e., the probability of being the 
+%                 % most likely component)
+%                 [~,iMax] = max(exp_r,[],2);
+%                 for iGroup = 1:length(modelgroups)
+%                     xp(iGroup) = sum(iMax == iGroup)/size(exp_r,1);
+%                 end
+%                 pval = 1 - xp;
+%                 xrlimit = 1; % x-axis limit
                 
             otherwise
                 error('Unknown algorithm for Bayesian Model Selection. Use either ''V''ariational inference or ''S''ampling (default ''V'')');
@@ -501,7 +525,15 @@ switch lower(plottype(1:3))
             h = bar(1:size(tab, 2), tab', 'EdgeColor', 'none');
         end
         colmap = colormap;
+        
+        
         for k = 1:size(tab, 2)
+            if numel(nonzero) == 1 && nonzero == k
+                barcol = [0.7 0.7 1];
+            else
+                barcol = 0.8*[1 1 1];
+            end
+            
             if horizontalplot
                 hb(k) = barh(-k, tab(k), 0.8);
             else
@@ -509,7 +541,7 @@ switch lower(plottype(1:3))
             end
             % colindex = 1 + floor(min([tab(i)/maxscore, 1])*(size(colmap, 1)-1));        
             % set(hb(i), 'FaceColor', colmap(colindex, :));
-            set(hb(k), 'FaceColor', 0.8*[1 1 1], 'EdgeColor', 'none');
+            set(hb(k), 'FaceColor', barcol, 'EdgeColor', 'none');
         end
         
         % Plot errors
@@ -534,15 +566,17 @@ switch lower(plottype(1:3))
         end    
 
         % Plot pvalues
-        for k = 1:size(tab, 2)
-            if pval(k) > 0.05 || isnan(pval(k)); continue; end
-            if pval(k) < 0.001; ptext = '***'; elseif pval(k) < 0.01; ptext = '**'; else ptext = '*'; end 
-            if horizontalplot
-                text(xrlimit*0.9, -k, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);
-            else
-                text(k, xrlimit*0.95, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);                
+        if strcmpi(bmsplot, 'post')
+            for k = 1:size(tab, 2)
+                if pval(k) > 0.05 || isnan(pval(k)); continue; end
+                if pval(k) < 0.001; ptext = '***'; elseif pval(k) < 0.01; ptext = '**'; else ptext = '*'; end 
+                if horizontalplot
+                    text(xrlimit*0.9, -k, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);
+                else
+                    text(k, xrlimit*0.95, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);                
+                end
+    %            text(tab(i) + 30, -i, ptext, 'HorizontalAlignment', 'Left', 'FontName', 'Arial', 'FontSize', fontsize);        
             end
-%            text(tab(i) + 30, -i, ptext, 'HorizontalAlignment', 'Left', 'FontName', 'Arial', 'FontSize', fontsize);        
         end
 
         % colormap;
@@ -552,12 +586,17 @@ switch lower(plottype(1:3))
         % Axes
         set(gca, 'FontSize', axesfontsize, 'FontName', 'Arial','TickDir','out'); %,'TickLength',2*get(gca,'TickLength'));
         % box on;
-
-        if isfield(modelsummary,'groupnames') && ~isempty(modelsummary.groupnames)
+        
+        % If factor names are not specified, see if they are in MODELSUMMARY
+        if isempty(factornames) && isfield(modelsummary,'groupnames')
+            factornames = modelsummary.groupnames;
+        end
+        
+        if ~isempty(factornames)
             str = [];
-            modelsummary.groupnames
+            factornames
             for k = 1:length(nonfeatures)
-                if ~nonfeatures(k); str{end+1} = modelsummary.groupnames{k}; end
+                if ~nonfeatures(k); str{end+1} = factornames{k}; end
             end
             modelstr = str;
         else
@@ -576,8 +615,13 @@ switch lower(plottype(1:3))
             for k = 1:size(tab,2)
                 xticklabel{k} = modelstr{k};
             end
-            set(gca, 'Ytick', 0:0.5:1, 'Xtick', 1:size(tab,2), 'XtickLabel', xticklabel);
-            xticklabel_rotate([],45);
+            set(gca, 'Ytick', 0:0.5:1, 'Xtick', 1:size(tab,2));
+            if labelxticks
+                set(gca, 'XtickLabel', xticklabel);
+                xticklabel_rotate([],45);
+            else
+                set(gca, 'XtickLabel', '');                
+            end
             ylabel('Posterior Model Feature Frequency', 'FontName', 'Arial', 'FontSize', fontsize);
         end
 end
