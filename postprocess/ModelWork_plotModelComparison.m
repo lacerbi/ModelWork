@@ -7,13 +7,16 @@ if nargin < 3; bms = []; end
 % Default options
 options.plottype = 'square';
 options.modellist = [];
-options.scorebounds = 100;
+options.scorebounds = 50;
 options.bmsalgorithm = 'V';     % Default BMS method is variational inference
 options.bmsorder = 0;
+options.bmsplot = 'post';       % BMS plot: 'post', 'xp', 'pxp'
 options.ssorder = 0;
 options.deviance = [];          % Is the metric specified in deviance units?
 options.factors = [];
 options.maxmodels = 20;         % Maximum # models shown
+options.nsamples = 1e6;         % Samples used in BMS
+options.threshold = 5;          % Score threshold
 
 % Parse variable arguments
 options = parseoptions(options,varargin{:});
@@ -25,7 +28,10 @@ ssorder = options.ssorder;
 deviance = options.deviance;
 bmsalgorithm = options.bmsalgorithm;
 bmsorder = options.bmsorder;
+bmsplot = options.bmsplot;
 factors = options.factors;
+nsamples = options.nsamples;
+threshold = options.threshold;
 
 if isempty(modellist); modellist = modelsummary.models; end
 
@@ -49,15 +55,15 @@ bms_precomputed = 0;
 set(gcf, 'Color', 'w');
 box off;
 
-tab = modelsummary.(metric);
+lme = modelsummary.(metric);
 models = modelsummary.models;
 
 % Correction for Inf and NaNs in the marginal likelihood
 if strcmpi(metric, 'mlike') || strcmpi(metric, 'marginallike')
-    f = isnan(tab) | isinf(tab);
+    f = isnan(lme) | isinf(lme);
     if any(f(:))
         warning(['Found ' num2str(sum(f(:))) ' invalid entries (Inf''s or NaN''s) in marginal likelihood table; using BIC for those.']);
-        tab(f) = -0.5*modelsummary.bic(f);
+        lme(f) = -0.5*modelsummary.bic(f);
     end
 end
 
@@ -88,7 +94,7 @@ end
 
 modelnames = modelnames(pos);
 models = models(pos,:);
-tab = tab(:,pos);
+lme = lme(:,pos);
 
 %% Run model comparison
 
@@ -100,20 +106,32 @@ else
     do_BMS = true;  % Perform group BMS method
     if ischar(bms) && strcmpi(bms,'sparse') % Give sparse prior for alpha0
         alpha0 = alpha0 / sqrt(Nmodels);
-        % bms_alpha0 = 0.285 * size(tab, 2)^(-0.3) - 0.033;
+        % bms_alpha0 = 0.285 * size(lme, 2)^(-0.3) - 0.033;
     elseif isnumeric(bms) || islogical(bms)
         alpha0 = double(bms);
-    end    
+    end
     if isscalar(alpha0)
         alpha0 = alpha0.*ones(1,Nmodels);
-    end    
+    end
+    
+    % Keep only models with nonzero priors
+    pos = alpha0 > 0;
+    lme = lme(:,pos);
+    modelnames = modelnames(pos);
+    models = models(pos,:);
+    if ~isempty(factors); factors = factors(:,pos); end
+    alpha0 = alpha0(pos);
 end
+
+[Ns,Nk] = size(lme);
+
 
 if isstruct(bms) && isfield(bms, 'alpha0')
     bms_precomputed = 1;
     alpha = bms.alpha;
     exp_r = bms.exp_r;
     xp = bms.xp;
+    pxp = bms.pxp;
     g = bms.g;
     bms_smpl = bms.smpl;
     models = bms.models;
@@ -121,7 +139,9 @@ if isstruct(bms) && isfield(bms, 'alpha0')
     modelnames = bms.modelnames;
     modelstr = modelnames;
     alpha0 = bms.alpha0;
-    tab = devmult*log(g);
+    lme = bms.lme;
+    % tab = devmult*log(g);
+    tab = log(g);
     if ~strcmpi(metric, bms.metric)
         warning(['Current metric (' upper(metric) ') differs from stored BMS metric (' upper(bms.metric) ').']);
     end
@@ -130,11 +150,11 @@ elseif do_BMS
     display(['Performing Bayesian Model Selection (BMS) with alpha_0 = ' num2str(alpha0) str '.']);
     
     % Convert from deviance units to log likelihood units if needed
-    tab_adj = tab/devmult;
+    lme = lme/devmult;
             
     switch lower(bmsalgorithm(1))
         case 'v'    % Variational inference
-            [alpha,exp_r,xp,pxp,bor,g] = spm_BMS_fast(tab_adj,[],[],[],[],alpha0.*ones(1,size(tab_adj,2)));
+            [alpha,exp_r,xp,pxp,bor,g] = spm_BMS_fast(lme,[],[],[],[],alpha0.*ones(1,Nk));
             bms_smpl = [];
         case 's'    % Sampling
             error('Sampling BMS currently not supported.');
@@ -144,8 +164,8 @@ elseif do_BMS
         otherwise
             error('Unknown algorithm for Bayesian Model Selection. Use either ''V''ariational inference or ''S''ampling (default ''V'')');
     end
-    tab = devmult*log(g);
-    clear tab_adj;
+    % tab = devmult*log(g);
+    tab = log(g);
 end
 
 %% Rearrange results of model comparison
@@ -158,18 +178,21 @@ else
         [~, order] = sort(exp_r, 'descend');
     else
         % Order models according to average model score
-        [~, order] = sort(-sign(devmult)*nansum(tab, 1), 'ascend');
+        [~, order] = sort(nansum(tab,1), 'descend');
     end
     tab = tab(:,order);
+    lme = lme(:,order);
     models = models(order,:);
     modelstr = modelnames(order);
 
     if do_BMS
         bms = [];
-        bms.alpha0 = alpha0;
+        bms.lme = lme;
+        bms.alpha0 = alpha0(order);
         bms.alpha = alpha(order);
         bms.exp_r = exp_r(order);
         bms.xp = xp(order);
+        bms.pxp = pxp(order);
         bms.g = g(:,order);
         bms.metric = metric;
         bms.smpl = bms_smpl;
@@ -183,27 +206,31 @@ else
         if ~isempty(factors); factors = factors(:,order); end
         alphatot = sum(bms.alpha); % Compute SD of r
         bms.std_r = sqrt(bms.alpha.*(alphatot - bms.alpha)./(alphatot^2*(alphatot+1)));
-        tab = devmult*log(bms.g);
+        % tab = devmult*log(bms.g);
+        tab = log(bms.g);
     else
         bms = [];
     end
     
-    tab = -tab*sign(devmult);
+    % tab = -tab*sign(devmult);
     
     % Reorder subjects
     if isscalar(ssorder) && ~ssorder
-        ssorder = 1:size(tab, 1);
+        ssorder = 1:Ns;
     elseif isscalar(ssorder)
-        basetemp = bsxfun(@minus, tab, min(tab, [], 2));
-        [bestscore,orderscore] = sort(basetemp,2,'ascend');
+        basetemp = bsxfun(@minus, tab, max(tab, [], 2));
+        [bestscore,orderscore] = sort(basetemp,2,'descend');
         temp = orderscore(:, 1)*1e12;
-        if size(bestscore, 2) > 1; temp = temp + bestscore(:, 2).*orderscore(:, 2)*1e6; end
-        if size(bestscore, 2) > 2; temp = temp + bestscore(:, 3).*orderscore(:, 3); end
+        if size(bestscore, 2) > 1; temp = temp - bestscore(:, 2).*orderscore(:, 2)*1e6; end
+        if size(bestscore, 2) > 2; temp = temp - bestscore(:, 3).*orderscore(:, 3); end
         [~,ssorder] = sort(temp, 1, 'ascend');    
     end
 
     if do_BMS
-        if ~bms_precomputed; bms.g = bms.g(ssorder,:); end
+        if ~bms_precomputed
+            bms.lme = bms.lme(ssorder,:);
+            bms.g = bms.g(ssorder,:);
+        end
         bms.models = models;
         bms.ssorder = ssorder;
     end
@@ -220,27 +247,30 @@ maxscore = scorebounds(1);
 switch lower(plottype(1:3))
     case {'mos','che','squ'} % Square or checkerboard table
         % Remove each individual subject's best model
-        tab = bsxfun(@minus, tab, min(tab, [], 2));
+        tab = bsxfun(@minus, tab, max(tab, [], 2));
 
         % Cap maximum difference, for visualization
-        tab(tab > maxscore) = maxscore;
+        tab(tab < -maxscore) = -maxscore;
 
-        if size(tab, 2) > MaxModels; tab = tab(:, 1:MaxModels); end
+        if Nk > MaxModels
+            tab = tab(:, 1:MaxModels);
+            Nk = MaxModels;
+        end
         
-        ss = 1:size(tab, 1);
-        for i = 1:size(tab, 1)
-            for j = 1:size(tab, 2)
-                patch([i i i+1 i+1], [-j -j-1 -j-1 -j], tab(i, j), 'EdgeColor', 'none');
+        ss = 1:Ns;
+        for i = 1:Ns
+            for k = 1:Nk
+                patch([i i i+1 i+1], [-k -k-1 -k-1 -k], -tab(i, k), 'EdgeColor', 'none');
             end
         end
 
         % Best models
-        for i = 1:size(tab, 1)
-            [besttab1, bestmodel1] = sort(tab(i, :));
+        for i = 1:Ns
+            [besttab1, bestmodel1] = sort(tab(i, :), 'descend');
             besttab1 = besttab1 - besttab1(1);
-            besttab1 = find(besttab1 < 10);
-            for j = 1:length(besttab1)
-                text(i + 0.5, -bestmodel1(besttab1(j))-0.5, num2str(j), 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', axesfontsize, 'Color', 0.8*[1 1 1]);
+            besttab1 = find(besttab1 > -threshold);
+            for k = 1:length(besttab1)
+                text(i + 0.5, -bestmodel1(besttab1(k))-0.5, num2str(k), 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', axesfontsize, 'Color', 0.8*[1 1 1]);
             end
         end
 
@@ -252,7 +282,7 @@ switch lower(plottype(1:3))
         set(h, 'YDir', 'reverse');
         h2 = get(h, 'Ylabel');
         set(h2, 'Interpreter', 'Tex');
-        axis([1 (length(ss)+1), (-size(tab,2)-1) -1, -height height]);
+        axis([1 (length(ss)+1), (-Nk-1) -1, -height height]);
 
         % Axes
         set(gca, 'FontSize', axesfontsize, 'FontName', 'Arial');
@@ -260,10 +290,10 @@ switch lower(plottype(1:3))
         for i = 1:length(ss); xticklabel{i} = num2str(ssorder(i)); end
         set(gca, 'Xtick', 1.5:1:length(ss)+1, 'XtickLabel', xticklabel);
 
-        for i = 1:size(tab,2)
-            yticklabel{size(tab,2)-i+1} = modelstr{i};
+        for i = 1:Nk
+            yticklabel{Nk-i+1} = modelstr{i};
         end
-        set(gca, 'Ytick', (-size(tab,2):-1)-0.5, 'YtickLabel', yticklabel);
+        set(gca, 'Ytick', (-Nk:-1)-0.5, 'YtickLabel', yticklabel);
 
         xlabel('Subject number', 'FontName', 'Arial', 'FontSize', fontsize);
 
@@ -287,46 +317,49 @@ switch lower(plottype(1:3))
         else            
             tab = bms.exp_r;
             tabse = bms.std_r;
-            pval = 1 - bms.xp;
+            pval = 1 - bms.pxp;
             xrlimit = 1; % x-axis limit
         end
         
-        if size(tab, 2) > MaxModels; tab = tab(:, 1:MaxModels); end
+        if Nk > MaxModels
+            tab = tab(:, 1:MaxModels);
+            Nk = MaxModels;
+        end
 
         % Remove ticks
         % patch([0.1 20 20 0.1], [-size(tab, 2) -size(tab, 2) -0.6 -0.6], [1 1 1], 'EdgeColor', 'none');
 
-        h = barh(-1:-1:-size(tab, 2), tab');
+        h = barh(-1:-1:-Nk, tab');
         colmap = colormap;
         % colmap = flipud(colormap);
-        for i = 1:size(tab, 2)
-            hb(i) = barh(-i, tab(i), 0.8);
-            colindex = max(1,1 + floor(min([tab(i)/maxscore, 1])*(size(colmap, 1)-1)));
-            set(hb(i), 'FaceColor', colmap(colindex, :));
+        for k = 1:Nk
+            hb(k) = barh(-k, tab(k), 0.8);
+            colindex = max(1,1 + floor(min([tab(k)/maxscore, 1])*(size(colmap, 1)-1)));
+            set(hb(k), 'FaceColor', colmap(colindex, :));
         end
         
         % Plot errors
-        for i = 1:size(tab, 1)
-            for j = 1:size(tab, 2)
-                if isempty(hb(i,j)); continue; end
-                x = hb(i,j).XData;
-                y = hb(i,j).YData;
+        for i = 1:Ns
+            for k = 1:Nk
+                if isempty(hb(i,k)); continue; end
+                x = hb(i,k).XData;
+                y = hb(i,k).YData;
                 clipping = 'on';
                 
-                seleft = [[1 1]*tab(i,j) + [0 1]*tabse(i,j), [1 1]*x];
+                seleft = [[1 1]*tab(i,k) + [0 1]*tabse(i,k), [1 1]*x];
                 plot(seleft(1:2), seleft(3:4), 'k', 'LineWidth', 1, 'Clipping', clipping);
-                if tab(i,j) > maxscore*0.1 && tab(i,j) < maxscore*0.7; col2 = [0 0 0]; else col2 = 0.8*[1 1 1]; end
-                seright = [[1 1]*tab(i,j) + [-1 0]*tabse(i,j), [1 1]*x];
+                if tab(i,k) > maxscore*0.1 && tab(i,k) < maxscore*0.7; col2 = [0 0 0]; else col2 = 0.8*[1 1 1]; end
+                seright = [[1 1]*tab(i,k) + [-1 0]*tabse(i,k), [1 1]*x];
                 plot(seright(1:2), seright(3:4), 'Color', col2, 'LineWidth', 1, 'Clipping', clipping);
             end
         end    
 
         % Plot pvalues
-        for i = 1:size(tab, 2)
-            if pval(i) > 0.05 || isnan(pval(i)); continue; end
-            if pval(i) < 0.001; ptext = '***'; elseif pval(i) < 0.01; ptext = '**'; else ptext = '*'; end 
-            text(xrlimit*0.9, -i, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);        
-%            text(tab(i) + 30, -i, ptext, 'HorizontalAlignment', 'Left', 'FontName', 'Arial', 'FontSize', fontsize);        
+        for k = 1:Nk
+            if pval(k) > 0.05 || isnan(pval(k)); continue; end
+            if pval(k) < 0.001; ptext = '***'; elseif pval(k) < 0.01; ptext = '**'; else ptext = '*'; end 
+            text(xrlimit*0.9, -k, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);        
+%            text(tab(i) + 30, -k, ptext, 'HorizontalAlignment', 'Left', 'FontName', 'Arial', 'FontSize', fontsize);        
         end
 
         % symb = {'', 'd', 'o'};
@@ -342,9 +375,9 @@ switch lower(plottype(1:3))
 
         % Best models
         for i = 1:size(tab, 1)
-            [bestscore1, bestmodel1] = sort(tab(i, :));
+            [bestscore1, bestmodel1] = sort(tab(i, :), 'descend');
             bestscore1 = bestscore1 - bestscore1(1);
-            bestscore1 = find(bestscore1 < 10);
+            bestscore1 = find(bestscore1 > -threshold);
         end
 
         colormap;
@@ -366,38 +399,65 @@ switch lower(plottype(1:3))
         end
         
     case 'fac' % Factor graph
-        tab = bsxfun(@minus, tab, tab(:, 1));
-        tabbase = tab;
+        lme = bms.lme;        
+        %tab = bsxfun(@minus, tab, tab(:, 1));
+        %tabbase = tab;
         
         if isempty(factors)
             error('FACTORS not specified; cannot compute factor comparison.');
         end
         Nfactors = size(factors,1);
         
+        % Normalize factors
+        factors_norm = bsxfun(@rdivide, factors, sum(factors,1));
+        
         horizontalplot = 0;
         
         switch lower(bmsalgorithm)
-            case 'v' % Add alpha levels of each model to each feature
+            case 'v'
                 
-                alpha = sum(bsxfun(@times, bms.alpha, ...
-                    bsxfun(@rdivide, factors, sum(factors,1))),2)';
-        
-                % Compute posterior expected feature frequency and SD
-                tab = alpha./sum(alpha);
-                tabse = sqrt(alpha.*(sum(alpha)-alpha)/(sum(alpha)^2*(sum(alpha)+1)));
-        
-                nonfeatures = (tab == 0);
-                tab(nonfeatures) = []; tabse(nonfeatures) = [];
+                % Add alpha levels of each model to each feature
+                alpha_fac = sum(bsxfun(@times, bms.alpha, factors),2)';
+                alpha0_fac = sum(bsxfun(@times, bms.alpha0, factors),2)';
+                        
+                % Compute posterior summed over factors
+                g_fac = zeros(Ns, Nfactors);
+                lme_fac = zeros(Ns, Nfactors);
+                for f = 1:Nfactors
+                    g_fac(:,f) = sum(bsxfun(@times, bms.g, factors_norm(f,:)), 2);
+                    idx = logical(factors_norm(f,:));
+                    maxlme = max(lme(:,idx),[],2);
+                    lme_fac(:,f) = log(sum(bsxfun(@times,factors_norm(f,idx)/sum(factors_norm(f,idx)),exp(bsxfun(@minus,lme(:,idx),maxlme))),2)) + maxlme;
+                end
+                
+                % Compute protected exceedance probability for each factor
+                [xp,bor,pxp] = spm_dirichlet_exceedance_fast(alpha_fac, nsamples, lme_fac, g_fac, alpha0_fac);
 
-                % Compute excess probability (i.e., the probability of being the 
-                % most likely component)
-                nsmpl = 1e6;
-                [~,iMax] = max(drchrnd(alpha,nsmpl),[],2);
-                for iGroup = 1:Nfactors
-                    xp(iGroup) = sum(iMax == iGroup)/nsmpl;
-                end        
-                pval = 1 - xp;
+%                 tmp = bsxfun(@minus, lme_fac, max(lme_fac,[],2));
+%                 bsxfun(@rdivide, exp(tmp), sum(exp(tmp),2))
+%                 xp
+%                 bor
+%                 pxp
+                
+                % 'Bayesian' p-value
+                pval = 1 - pxp;
                 xrlimit = 1; % x-axis limit
+                
+                switch lower(bmsplot)
+                    case 'xp'
+                        tab = xp;
+                        tabse = zeros(size(tab));
+                    case 'pxp'
+                        tab = pxp;
+                        tabse = zeros(size(tab));
+                    case 'post'
+                        % Compute posterior expected feature frequency and SD
+                        tab = alpha_fac./sum(alpha_fac);
+                        tabse = sqrt(alpha_fac.*(sum(alpha_fac)-alpha_fac)/(sum(alpha_fac)^2*(sum(alpha_fac)+1)));
+                end
+                
+                nonfeatures = (alpha_fac == 0);
+                tab(nonfeatures) = []; tabse(nonfeatures) = [];
                 
             case 's' % Sampling                
                 error('Sampling method currently not supported.');
@@ -441,46 +501,46 @@ switch lower(plottype(1:3))
             h = bar(1:size(tab, 2), tab', 'EdgeColor', 'none');
         end
         colmap = colormap;
-        for i = 1:size(tab, 2)
+        for k = 1:size(tab, 2)
             if horizontalplot
-                hb(i) = barh(-i, tab(i), 0.8);
+                hb(k) = barh(-k, tab(k), 0.8);
             else
-                hb(i) = bar(i, tab(i), 0.8);
+                hb(k) = bar(k, tab(k), 0.8);
             end
             % colindex = 1 + floor(min([tab(i)/maxscore, 1])*(size(colmap, 1)-1));        
             % set(hb(i), 'FaceColor', colmap(colindex, :));
-            set(hb(i), 'FaceColor', 0.8*[1 1 1], 'EdgeColor', 'none');
+            set(hb(k), 'FaceColor', 0.8*[1 1 1], 'EdgeColor', 'none');
         end
         
         % Plot errors
-        for i = 1:size(tab, 1)
-            for j = 1:size(tab, 2)
-                if isempty(hb(i, j)); continue; end
-                x = hb(i,j).XData;
-                y = hb(i,j).YData;
+        for i = 1:size(tab,1)
+            for k = 1:size(tab, 2)
+                if isempty(hb(i, k)); continue; end
+                x = hb(i,k).XData;
+                y = hb(i,k).YData;
                 if horizontalplot
-                    plot([1 1]'*tab(i, j) + [0 1]'*tabse(i, j), [1 1]'*y, 'k', 'LineWidth', 0.5, 'Clipping', 'off');
+                    plot([1 1]'*tab(i, k) + [0 1]'*tabse(i, k), [1 1]'*y, 'k', 'LineWidth', 0.5, 'Clipping', 'off');
                 else
-                    plot([1 1]'*j, [1 1]'*tab(i,j) + [0 1]'*tabse(i, j), 'k', 'LineWidth', 0.5, 'Clipping', 'off');                        
+                    plot([1 1]'*k, [1 1]'*tab(i,k) + [0 1]'*tabse(i, k), 'k', 'LineWidth', 0.5, 'Clipping', 'off');                        
                 end
                    
-                if tab(i,j) > maxscore*0.1 && tab(i, j) < maxscore*0.7; col2 = [0 0 0]; else col2 = 0.8*[1 1 1]; end
+                if tab(i,k) > maxscore*0.1 && tab(i, k) < maxscore*0.7; col2 = [0 0 0]; else col2 = 0.8*[1 1 1]; end
                 if horizontalplot
-                    plot([1 1]'*tab(i, j) + [-1 0]'*tabse(i, j), [1 1]'*y, 'Color', col2, 'LineWidth', 0.5, 'Clipping', 'off');
+                    plot([1 1]'*tab(i, k) + [-1 0]'*tabse(i, k), [1 1]'*y, 'Color', col2, 'LineWidth', 0.5, 'Clipping', 'off');
                 else
-                    plot([1 1]'*j, [1 1]'*tab(i, j) + [-1 0]'*tabse(i, j), 'Color', col2, 'LineWidth', 0.5, 'Clipping', 'on');                    
+                    plot([1 1]'*k, [1 1]'*tab(i, k) + [-1 0]'*tabse(i, k), 'Color', col2, 'LineWidth', 0.5, 'Clipping', 'on');                    
                 end
             end
         end    
 
         % Plot pvalues
-        for i = 1:size(tab, 2)
-            if pval(i) > 0.05 || isnan(pval(i)); continue; end
-            if pval(i) < 0.001; ptext = '***'; elseif pval(i) < 0.01; ptext = '**'; else ptext = '*'; end 
+        for k = 1:size(tab, 2)
+            if pval(k) > 0.05 || isnan(pval(k)); continue; end
+            if pval(k) < 0.001; ptext = '***'; elseif pval(k) < 0.01; ptext = '**'; else ptext = '*'; end 
             if horizontalplot
-                text(xrlimit*0.9, -i, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);
+                text(xrlimit*0.9, -k, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);
             else
-                text(i, xrlimit*0.95, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);                
+                text(k, xrlimit*0.95, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);                
             end
 %            text(tab(i) + 30, -i, ptext, 'HorizontalAlignment', 'Left', 'FontName', 'Arial', 'FontSize', fontsize);        
         end
@@ -496,8 +556,8 @@ switch lower(plottype(1:3))
         if isfield(modelsummary,'groupnames') && ~isempty(modelsummary.groupnames)
             str = [];
             modelsummary.groupnames
-            for i = 1:length(nonfeatures)
-                if ~nonfeatures(i); str{end+1} = modelsummary.groupnames{i}; end
+            for k = 1:length(nonfeatures)
+                if ~nonfeatures(k); str{end+1} = modelsummary.groupnames{k}; end
             end
             modelstr = str;
         else
@@ -507,14 +567,14 @@ switch lower(plottype(1:3))
         end
         
         if horizontalplot
-            for i = 1:size(tab,2)
-                yticklabel{size(tab,2)-i+1} = modelstr{i};
+            for k = 1:size(tab,2)
+                yticklabel{size(tab,2)-k+1} = modelstr{k};
             end
             set(gca, 'Xtick', 0:0.5:1, 'Ytick', (-size(tab,2):-1), 'YtickLabel', yticklabel);
             xlabel('Posterior Model Feature Frequency', 'FontName', 'Arial', 'FontSize', fontsize, 'Interpreter', 'Tex');
         else
-            for i = 1:size(tab,2)
-                xticklabel{i} = modelstr{i};
+            for k = 1:size(tab,2)
+                xticklabel{k} = modelstr{k};
             end
             set(gca, 'Ytick', 0:0.5:1, 'Xtick', 1:size(tab,2), 'XtickLabel', xticklabel);
             xticklabel_rotate([],45);
@@ -522,13 +582,6 @@ switch lower(plottype(1:3))
         end
 end
 
-end
-%--------------------------------------------------------------------------
-function r = drchrnd(alpha,n)
-% DRCHRND Take a sample from a dirichlet distribution.
-alpha = alpha(:)';
-r = gamrnd(repmat(alpha,n,1),1,[n,size(alpha,2)]);
-r = bsxfun(@rdivide, r, sum(r,2));
 end
 
 %--------------------------------------------------------------------------

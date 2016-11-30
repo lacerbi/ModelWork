@@ -48,7 +48,7 @@ if nargin < 4 || isempty(sampling)
     sampling = 0;
 end
 if nargin < 5 || isempty(ecp)
-    ecp = 1;
+    ecp = (nargout > 2);
 end
 
 max_val = log(realmax('double'));
@@ -106,37 +106,15 @@ end
 exp_r = alpha./sum(alpha);
 
 
-% Compute exceedance probabilities p(r_i>r_j)
+% Compute exceedance probabilities p(r_i>r_j), Bayesian Omnibus Risk, and
+% protected exceedance probabilities
 %--------------------------------------------------------------------------
 if ecp
-    if Nk == 2
-        % comparison of 2 models
-        xp(1) = spm_Bcdf(0.5,alpha(2),alpha(1));
-        xp(2) = spm_Bcdf(0.5,alpha(1),alpha(2));
-    else
-        % comparison of >2 models: use sampling approach
-        xp = spm_dirichlet_exceedance_fast(alpha,Nsamp);
-    end
+    [xp,bor,pxp] = spm_dirichlet_exceedance_fast(alpha, Nsamp, lme, g, alpha0);
 else
-        xp = [];
+    xp = []; bor = []; pxp = [];
 end
 
-% Compute Bayes Omnibus Risk - use functions from VBA toolbox
-posterior.a=alpha;
-posterior.r=g';
-priors.a=alpha0;
-
-F1 = FE(lme',posterior,priors); % Evidence of alternative
-
-options.families=[];
-F0 = FE_null(lme',options); % Evidence of null (equal model freqs)
-
-% Implied by Eq 5 (see also p39) in Rigoux et al.
-% See also, last equation in Appendix 2
-bor=1/(1+exp(F1-F0)); 
-
-% Compute protected exceedance probs - Eq 7 in Rigoux et al.
-pxp=(1-bor)*xp+bor/Nk;
 
 % Graphics output (currently for 2 models only)
 %--------------------------------------------------------------------------
@@ -211,114 +189,5 @@ end
 
 
 
-function [F,ELJ,Sqf,Sqm] = FE(L,posterior,priors)
-% derives the free energy for the current approximate posterior
-% This routine has been copied from the VBA_groupBMC function
-% of the VBA toolbox http://code.google.com/p/mbb-vb-toolbox/ 
-% and was written by Lionel Rigoux and J. Daunizeau
-%
-% See equation A.20 in Rigoux et al. (should be F1 on LHS)
-
-[K,n] = size(L);
-a0 = sum(posterior.a);
-Elogr = psi(posterior.a) - psi(sum(posterior.a));
-Sqf = sum(gammaln(posterior.a)) - gammaln(a0) - sum((posterior.a-1).*Elogr);
-Sqm = 0;
-for i=1:n
-    Sqm = Sqm - sum(posterior.r(:,i).*log(posterior.r(:,i)+eps));
-end
-ELJ = gammaln(sum(priors.a)) - sum(gammaln(priors.a)) + sum((priors.a-1).*Elogr);
-for i=1:n
-    for k=1:K
-        ELJ = ELJ + posterior.r(k,i).*(Elogr(k)+L(k,i));
-    end
-end
-F = ELJ + Sqf + Sqm;
 
 
-
-function [F0m,F0f] = FE_null(L,options)
-% derives the free energy of the 'null' (H0: equal model frequencies)
-% This routine has been copied from the VBA_groupBMC function
-% of the VBA toolbox http://code.google.com/p/mbb-vb-toolbox/ 
-% and was written by Lionel Rigoux and J. Daunizeau
-%
-% See Equation A.17 in Rigoux et al.
-
-[K,n] = size(L);
-if ~isempty(options.families)
-    f0 = options.C*sum(options.C,1)'.^-1/size(options.C,2);
-    F0f = 0;
-else
-    F0f = [];
-end
-F0m = 0;
-for i=1:n
-    tmp = L(:,i) - max(L(:,i));
-    g = exp(tmp)./sum(exp(tmp));
-    for k=1:K
-        F0m = F0m + g(k).*(L(k,i)-log(K)-log(g(k)+eps));
-        if ~isempty(options.families)
-            F0f = F0f + g(k).*(L(k,i)-log(g(k))+log(f0(k)));
-        end
-    end
-end
-
-function xp = spm_dirichlet_exceedance_fast(alpha,Nsamp)
-% Compute exceedance probabilities for a Dirichlet distribution
-% FORMAT xp = spm_dirichlet_exceedance_fast(alpha,Nsamp)
-% 
-% Input:
-% alpha     - Dirichlet parameters
-% Nsamp     - number of samples used to compute xp [default = 1e6]
-% 
-% Output:
-% xp        - exceedance probability
-%__________________________________________________________________________
-%
-% This function computes exceedance probabilities, i.e. for any given model
-% k1, the probability that it is more likely than any other model k2.  
-% More formally, for k1=1..Nk and for all k2~=k1, it returns p(x_k1>x_k2) 
-% given that p(x)=dirichlet(alpha).
-% 
-% Refs:
-% Stephan KE, Penny WD, Daunizeau J, Moran RJ, Friston KJ
-% Bayesian Model Selection for Group Studies. NeuroImage (in press)
-%__________________________________________________________________________
-% Copyright (C) 2008 Wellcome Trust Centre for Neuroimaging
-
-% Will Penny & Klaas Enno Stephan
-% $Id: spm_dirichlet_exceedance.m 3118 2009-05-12 17:37:32Z guillaume $
-
-if nargin < 2
-    Nsamp = 1e6;
-end
-
-Nk = length(alpha);
-
-% Perform sampling in blocks
-%--------------------------------------------------------------------------
-blk = ceil(Nsamp*Nk*8 / 2^28);
-blk = floor(Nsamp/blk * ones(1,blk));
-blk(end) = Nsamp - sum(blk(1:end-1));
-
-xp = zeros(1,Nk);
-for i=1:length(blk)
-    
-    % Sample from univariate gamma densities then normalise
-    % (see Dirichlet entry in Wikipedia or Ferguson (1973) Ann. Stat. 1,
-    % 209-230)
-    %----------------------------------------------------------------------
-    
-    r = gamrnd(repmat(alpha,[blk(i),1]),1,blk(i),Nk);    
-    r = bsxfun(@rdivide, r, sum(r,2));
-        
-    % Exceedance probabilities:
-    % For any given model k1, compute the probability that it is more
-    % likely than any other model k2~=k1
-    %----------------------------------------------------------------------
-    [y, idx] = max(r,[],2);
-    xp = xp + histc(idx, 1:Nk)';
-    
-end
-xp = xp / Nsamp;
