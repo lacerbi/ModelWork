@@ -328,8 +328,17 @@ switch lower(plottype(1:3))
 
         % Hierarchical Bayesian model comparison    
         else            
-            tab = bms.exp_r;
-            tabse = bms.std_r;
+            switch lower(bmsplot)
+                case 'xp'
+                    tab = bms.xp;
+                    tabse = zeros(size(tab));
+                case 'pxp'
+                    tab = bms.pxp;
+                    tabse = zeros(size(tab));
+                case 'post'
+                    tab = bms.exp_r;
+                    tabse = bms.std_r;
+            end
             pval = 1 - bms.pxp;
             xrlimit = 1; % x-axis limit
         end
@@ -342,6 +351,16 @@ switch lower(plottype(1:3))
         % Remove ticks
         % patch([0.1 20 20 0.1], [-size(tab, 2) -size(tab, 2) -0.6 -0.6], [1 1 1], 'EdgeColor', 'none');
 
+        % Best models
+        for i = 1:size(tab, 1)
+            [bestscore1, bestmodel1] = sort(tab(i, :), 'descend');
+            bestscore1 = bestscore1 - bestscore1(1);
+            bestscore1 = find(bestscore1 > -threshold);
+            tab = tab(:,bestmodel1);
+            tabse = tabse(:,bestmodel1);
+            modelstr = modelstr(bestmodel1);
+        end
+                
         h = barh(-1:-1:-Nk, tab');
         colmap = colormap;
         % colmap = flipud(colormap);
@@ -352,8 +371,8 @@ switch lower(plottype(1:3))
         end
         
         % Plot errors
-        for i = 1:Ns
-            for k = 1:Nk
+        for i = 1:size(tab,1)
+            for k = 1:size(tab,2)
                 if isempty(hb(i,k)); continue; end
                 x = hb(i,k).XData;
                 y = hb(i,k).YData;
@@ -386,12 +405,6 @@ switch lower(plottype(1:3))
         %    end
         %end
 
-        % Best models
-        for i = 1:size(tab, 1)
-            [bestscore1, bestmodel1] = sort(tab(i, :), 'descend');
-            bestscore1 = bestscore1 - bestscore1(1);
-            bestscore1 = find(bestscore1 > -threshold);
-        end
 
         colormap;
         % colormap(flipud(colormap));
