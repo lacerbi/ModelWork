@@ -50,18 +50,19 @@ for iPriority = 1:numel(priorityList)
                 [x,y,yerr] = removeinvalidpoints(x,y,yerr);
 
                 % linecolor = assign(thisplot, 'linecolor', [0 0 0]);
+                linestyle = assign(thisplot, 'linestyle', 'none');
                 color = assign(thisplot, 'color', [0 0 0]);
                 linewidth = assign(thisplot, 'linewidth', 1);
                 errorwidth = assign(thisplot, 'errorwidth', []);
                 if ~isempty(yerr)
                     if isempty(errorwidth)
-                        herr(end+1) = errorbar(x, y, yerr, 'Color', color, 'LineWidth', linewidth,'LineStyle','-');
+                        herr(end+1) = errorbar(x, y, yerr, 'Color', color, 'LineWidth', linewidth,'LineStyle',linestyle);
                         herrsize(end+1) = assign(thisplot, 'errorbar_size', 80);
                     elseif errorwidth == 0                        
                         for j = 1:numel(x)
-                            herr(end+1) = plot(x(j)*[1 1], y(j)+yerr(j)*[-1 1], 'Color', color, 'LineWidth', linewidth,'LineStyle','-');
+                            herr(end+1) = plot(x(j)*[1 1], y(j)+yerr(j)*[-1 1], 'Color', color, 'LineWidth', linewidth,'LineStyle',linestyle);
                         end
-                        herr(end+1) = plot(x, y, 'Color', color, 'LineWidth', linewidth,'LineStyle','-');
+                        herr(end+1) = plot(x, y, 'Color', color, 'LineWidth', linewidth,'LineStyle',linestyle);
                         herrsize(end+1) = assign(thisplot, 'errorbar_size', 80);
                         
                     end
@@ -93,7 +94,7 @@ for iPriority = 1:numel(priorityList)
                 errColor = assign(thisplot, 'errColor', color);
                 linewidth = assign(thisplot, 'linewidth', 2);
                 linestyle = assign(thisplot, 'linestyle', '-');
-                facealpha = assign(thisplot, 'facealpha', 1);
+                facealpha = assign(thisplot, 'facealpha', 0.5);
                 if isempty(yerr) || all(isnan(errColor))
                     plot(x,y,'Color',color,'LineWidth',linewidth,'LineStyle',linestyle);
                 else
@@ -182,6 +183,69 @@ for iPriority = 1:numel(priorityList)
 
                 view([0 90]);
                 colormap(gray);
+                           
+            case 'bar2dflat'
+                idx = ~isnan(thisplot.z(:));
+                plot(thisplot.z(idx));
+                
+            case {'errorbar2dflat','errorbars2dflat'}
+                z = thisplot.z(:);
+                idx = ~isnan(z);
+                z = z(idx);
+                zerr = assign(thisplot, 'zerr', []); 
+                if ~isempty(zerr); zerr = zerr(idx); end
+                % [x,y,yerr] = removeinvalidpoints(x,y,yerr);
+                x = 1:numel(z);
+
+                % linecolor = assign(thisplot, 'linecolor', [0 0 0]);
+                linestyle = assign(thisplot, 'linestyle', 'none');
+                color = assign(thisplot, 'color', [0 0 0]);
+                linewidth = assign(thisplot, 'linewidth', 1);
+                errorwidth = assign(thisplot, 'errorwidth', []);
+                if ~isempty(zerr)
+                    if isempty(errorwidth)
+                        herr(end+1) = errorbar(x, z, zerr, 'Color', color, 'LineWidth', linewidth,'LineStyle',linestyle);
+                        herrsize(end+1) = assign(thisplot, 'errorbar_size', 80);
+                    elseif errorwidth == 0                        
+                        for j = 1:numel(x)
+                            herr(end+1) = plot(x(j)*[1 1], y(j)+yerr(j)*[-1 1], 'Color', color, 'LineWidth', linewidth,'LineStyle',linestyle);
+                        end
+                        herr(end+1) = plot(x, y, 'Color', color, 'LineWidth', linewidth,'LineStyle',linestyle);
+                        herrsize(end+1) = assign(thisplot, 'errorbar_size', 80);
+                        
+                    end
+                end
+                
+            case {'dot2dflat','dots2dflat'}                
+                z = thisplot.z(:);
+                idx = ~isnan(z);
+                z = z(idx);
+                x = 1:numel(z);
+
+                linecolor = assign(thisplot, 'linecolor', [0 0 0]);
+                color = assign(thisplot, 'color', [0 0 0]);
+                linewidth = assign(thisplot, 'linewidth', 1);
+                markertype = assign(thisplot, 'markertype', 'o');
+                markersize = assign(thisplot, 'markersize', 6);
+
+                if ~isempty(z) && ~any(strcmpi(markertype,{'','none'}))
+                    plot(x, z, markertype, 'MarkerSize', markersize, 'MarkerFaceColor', color, 'MarkerEdgeColor', color, 'LineWidth', linewidth);
+                end
+                
+            case 'line2dflat'
+                z = thisplot.z(:);
+                idx = ~isnan(z);
+                z = z(idx);
+                x = 1:numel(z);
+
+                color = assign(thisplot, 'color', [0 0 0]);
+                % errColor = assign(thisplot, 'errColor', color);
+                linewidth = assign(thisplot, 'linewidth', 2);
+                linestyle = assign(thisplot, 'linestyle', '-');
+                % facealpha = assign(thisplot, 'facealpha', 0.5);
+                plot(x,z,'Color',color,'LineWidth',linewidth,'LineStyle',linestyle);
+                
+                
                 
         end
     end
@@ -223,7 +287,11 @@ axis([xLim yLim]);
 % Plot zero line
 plotzero = assign(panel, 'plotzero', 1);
 % if plotzero; plot3(xLim, [0 0], [-1 -1], 'k:', 'LineWidth', 0.5); end
-if plotzero; plot(xLim, [0 0], 'k:', 'LineWidth', 0.5); end
+switch plotzero
+    case 1; hp = plot(xLim, [0 0], 'k:', 'LineWidth', 0.5); 
+    case 2; hp = plot(xLim, [0 0], 'k--', 'LineWidth', 1);
+end
+if plotzero; uistack(hp,'bottom'); end
 
 % Plot diagonal
 plotdiagonal = assign(panel, 'plotdiagonal', 0);

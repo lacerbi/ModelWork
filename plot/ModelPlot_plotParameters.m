@@ -9,6 +9,8 @@ else
         noplot = 0;    
 end
 
+linewidth = 3;
+
 mfit = [];
 for i = 1:numel(varargin)
     % Check that input is a model fit structure
@@ -60,7 +62,8 @@ colors = [  ...
 nparams = numel(params);
 minq = zeros(1,nparams);
 
-for j = 1:nparams
+for j = 1:nparams    
+    logflag = 0;
 
     if ~noplot
         subplot(gridsize(nparams,1),gridsize(nparams,2),j);
@@ -69,6 +72,9 @@ for j = 1:nparams
             if isempty(idx); continue; end
             samples = mfit{i}.sampling.samples(:,idx);
             bounds = [mfit{i}.mp.bounds.LB(idx),mfit{i}.mp.bounds.UB(idx)];
+            if isfield(mfit{i}.mp.bounds,'logflag')
+                logflag = mfit{i}.mp.bounds.logflag(idx);
+            end
 
             % Plot histogram of posterior over parameter
             if 0
@@ -84,7 +90,7 @@ for j = 1:nparams
             pdf = [0; pdf/sum(pdf)/dx; 0];
 
             xlim(bounds);
-            plot(xx,pdf,'-','Color',colors(i,:),'LineWidth',1);
+            plot(xx,pdf,'-','Color',colors(i,:),'LineWidth',linewidth);
             hold on;
         end
 
@@ -92,6 +98,12 @@ for j = 1:nparams
         textstring(textstring == '_') = '-'; 
         xlabel(textstring);
         ylabel('Probability density');
+        
+        if logflag
+            xtick = [0.01 0.03 0.1 0.3 1 3 10 30 100];
+            for iTick = 1:numel(xtick); xticklabel{iTick} = num2str(xtick(iTick)); end
+            set(gca,'XTick',log(xtick),'XTickLabel', xticklabel);
+        end
 
         set(gca,'TickDir','out');
         box off;
@@ -115,7 +127,7 @@ for j = 1:nparams
         idx = find(strcmp(params{j},mfit{ii}.mp.params),1);
         if ~isempty(idx); X{end+1} = mfit{ii}.sampling.samples(:,idx); end
     end
-    minq(j) = compatibility(X{:});
+    minq(j) = compmet(X{:});
     
 end
 
@@ -125,7 +137,7 @@ if ~noplot
     % Write legend
     subplot(gridsize(nparams,1),gridsize(nparams,2),prod(gridsize(nparams,:)));
     for i = 1:numel(mfit)
-        plot([0 0], [0 0], '-', 'Color',colors(i,:),'LineWidth',1); hold on;
+        plot([0 0], [0 0], '-', 'Color',colors(i,:),'LineWidth',linewidth); hold on;
         names{i} = VestBMS_getModelName(mfit{i}.model);
     end
 

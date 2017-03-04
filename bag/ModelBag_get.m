@@ -24,16 +24,16 @@ if nargin < 3
     model = dataid;
     dataid = modelsummary.dataid;
     cnd = modelsummary.cnd;
-    
-    if ischar(model)
-        idx = find(strcmp(model,modelsummary.modelnames));
-        if isempty(idx) || ~isscalar(idx)
-            error(['Cannot find unique match for model ' model ' in model summary.']);
-        end
-        model = modelsummary.models(idx,:);
-    elseif isscalar(model)
-        model = modelsummary.models(model,:);        
-    end
+else
+    modelsummary = [];
+end
+
+% Convert model to model vector
+if ischar(model) || isscalar(model)
+    if isempty(modelsummary)
+        modelsummary = ModelWork_summary(mbag);
+    end        
+    model = readmodel(model,modelsummary);
 end
 
 if ~iscell(dataid)  % Cellify
@@ -61,5 +61,21 @@ else
                 else mfit{length(mfit)+1} = mbag.bag{idx}; end
             end
         end
+    end
+end
+
+end
+
+%--------------------------------------------------------------------------
+function model = readmodel(model, modelsummary)
+%READMODEL Convert model in any form to model vector   
+    if ischar(model)
+        idx = find(strcmp(model,modelsummary.modelnames));
+        if isempty(idx) || ~isscalar(idx)
+            error(['Cannot find unique match for model ' model ' in model summary.']);
+        end
+        model = modelsummary.models(idx,:);
+    elseif isscalar(model)
+        model = modelsummary.models(model,:);        
     end
 end

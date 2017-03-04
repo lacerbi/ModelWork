@@ -4,7 +4,7 @@ function ModelWork_loglikeCheck(project,mfit,N)
 %   likelihood and fake data generation for project PROJECT and provided 
 %   model structure MFIT.
 
-if nargin < 3 || isempty(N); N = 1000; end
+if nargin < 3 || isempty(N); N = 2^12; end
 
 TolErr = sqrt(eps);
 
@@ -16,14 +16,14 @@ genall = gendataFun(N,mfit);
 
 [Ntrials,Ncols] = size(genall{1});
 genmat = zeros(Ntrials,Ncols,N);
-ll = zeros(1,N);
+ll = NaN(1,N);
 
 options.dataid = mfit.dataid;
 options.cnd = mfit.cnd;
 
 % Regenerate true data
 gentrue = gendataFun(1,mfit,'r');
-[ll_true,mfit_true] = computeLL(project,gentrue,mfit,options,analyticsFun,modelFitFun);
+[mfit_true,ll_true] = computeLL(project,gentrue,mfit,options,analyticsFun,modelFitFun);
 
 %truedata = analyticsFun(gentrue);
 %[mfit_true,infostruct] = ...
@@ -38,10 +38,12 @@ if err > TolErr
 end
 
 infodata = [];
+mfit_curr = NaN;
 
 for i = 1:N;
     % genmat(:,:,i) = genall{i};
-    [ll(i),mfit_curr] = computeLL(project,{genall{i}},mfit,options,analyticsFun,modelFitFun);
+    %[mfit_curr,ll(i)] = computeLL(project,{genall{i}},mfit,options,analyticsFun,modelFitFun);
+    mfit_curr = computeLL(project,{genall{i}},mfit,options,analyticsFun,modelFitFun);
     
     %tmp = analyticsFun({genmat(:,:,i)});
     %gendata{i} = tmp{1};
@@ -64,9 +66,14 @@ for i = 1:N;
     %pmean = lambda*0.5 + (1-lambda)*pmean;
     
     %LL0 = nansum(log(pmean(:)).*P(:));
+    fprintf('%3d# True LL: %.2f. Estimated LL: %.2f.', i, ll_true, ll_est);
     
-    fprintf('%3d# True LL: %.2f. Estimated LL: %.2f. Fake data LL: %.2f ± %.2f.\n', ...
-        i, ll_true, ll_est, mean(ll(1:i)), std(ll(1:i)));
+    if ~isnan(ll(i))
+        fprintf(' Fake data LL: %.2f ± %.2f.\n', mean(ll(1:i)), std(ll(1:i)));        
+    else
+        fprintf('\n');        
+    end
+    
 end
 
 genmat = mean(genmat,3);
@@ -74,14 +81,16 @@ genmat = mean(genmat,3);
 end
 
 %--------------------------------------------------------------------------
-function [ll,mfit] = computeLL(project,datamat,mfit,options,analyticsFun,modelFitFun)
+function [mfit,ll] = computeLL(project,datamat,mfit,options,analyticsFun,modelFitFun)
 %COMPUTELL Compute log likelihood of data matrix.
 
 data = analyticsFun(datamat);
 [mfit,infostruct] = ...
     modelFitFun('preprocessdata',data{1},mfit,options,mfit.infostruct);
 mfit.infostruct = infostruct;
-clear functions;
-ll = -ModelWork_like(project,mfit,mfit.maptheta);
+if nargout > 1
+    clear functions;
+    ll = -ModelWork_like(project,mfit,mfit.maptheta);
+end
 
 end

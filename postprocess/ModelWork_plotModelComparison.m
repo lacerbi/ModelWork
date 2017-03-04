@@ -1,4 +1,4 @@
-function [models,tab,bms] = ModelWork_plotModelComparison(modelsummary,metric,bms,varargin)
+function [models,tab,bms,fac] = ModelWork_plotModelComparison(modelsummary,metric,bms,varargin)
 % MODELWORK_PLOTMODELCOMPARISON Plot of summary results of model comparison.
 
 if nargin < 2 || isempty(metric); metric = 'aicc'; end
@@ -11,6 +11,7 @@ options.scorebounds = 50;
 options.bmsalgorithm = 'V';     % Default BMS method is variational inference
 options.bmsorder = 0;
 options.bmsplot = 'post';       % BMS plot: 'post', 'xp', 'pxp'
+options.bmshyper = 0;           % BMS hyperprior (for now 0: standard BMS)
 options.ssorder = 0;
 options.deviance = [];          % Is the metric specified in deviance units?
 options.factors = [];           % Factors
@@ -45,6 +46,9 @@ if isempty(modellist); modellist = modelsummary.models; end
 
 % By default perform simple model comparison
 if isempty(bms); bms = 0; end
+
+% Factor results struct
+fac = [];
 
 % Specify metrics that are defined in terms of deviance
 deviancemets = {'aic','aicc','bic','dic','dic1','dic2','waic','waic1','waic2'};
@@ -139,6 +143,7 @@ if isstruct(bms) && isfield(bms, 'alpha0')
     alpha = bms.alpha;
     exp_r = bms.exp_r;
     xp = bms.xp;
+    bor = bms.bor;
     pxp = bms.pxp;
     g = bms.g;
     bms_smpl = bms.smpl;
@@ -158,15 +163,23 @@ elseif do_BMS
     
     % Convert from deviance units to log likelihood units if needed
     lme = lme/devmult;
-            
+    if options.bmshyper == 0
+        w_k = alpha0;
+    else
+        w_k = alpha0.*ones(1,Nk)/mean(alpha0.*ones(1,Nk));
+    end
+    
     switch lower(bmsalgorithm(1))
         case 'v'    % Variational inference
-            [alpha,exp_r,xp,pxp,bor,g] = spm_BMS_fast(lme,[],[],[],[],alpha0.*ones(1,Nk));
+            [exp_r,xp,pxp,output] = rbms(lme,'Method','vb','Nsamp',nsamples,'PriorWeights',w_k,'HyperPrior',options.bmshyper,'Display','final');
+            alpha = output.alpha; g = output.g; bor = output.bor;
             bms_smpl = [];
         case 's'    % Sampling
-            error('Sampling BMS currently not supported.');
-%             [exp_r,xp,g,bms_smpl] = gen_BMS(tab_adj,[],'sparse',[]);
-%             alpha = exp_r;
+            nsamples = 1e5;
+            [exp_r,xp,pxp,output] = rbms(lme,'Method','gs','Nsamp',nsamples,'PriorWeights',w_k,'HyperPrior',options.bmshyper);
+            g = output.g;   bor = output.bor;
+            alpha = exp_r;
+            bms_smpl = output;
         otherwise
             error('Unknown algorithm for Bayesian Model Selection. Use either ''V''ariational inference or ''S''ampling (default ''V'')');
     end
@@ -194,9 +207,10 @@ else
         bms = [];
         bms.lme = lme;
         bms.alpha0 = alpha0(order);
-        bms.alpha = alpha(order);
+        bms.alpha = alpha(:,order);
         bms.exp_r = exp_r(order);
         bms.xp = xp(order);
+        bms.bor = bor;
         bms.pxp = pxp(order);
         bms.g = g(:,order);
         bms.metric = metric;
@@ -209,8 +223,9 @@ else
             if isfield(bms.smpl,'u'); bms.smpl.u = bms.smpl.u(:,order); end
         end
         if ~isempty(factors); factors = factors(:,order); end
-        alphatot = sum(bms.alpha); % Compute SD of r
-        bms.std_r = sqrt(bms.alpha.*(alphatot - bms.alpha)./(alphatot^2*(alphatot+1)));
+        bms.cov_r = output.cov_r;
+        bms.std_r = sqrt(diag(output.cov_r))';
+        
         % tab = devmult*log(bms.g);
         tab = log(bms.g);
     else
@@ -352,14 +367,14 @@ switch lower(plottype(1:3))
         % patch([0.1 20 20 0.1], [-size(tab, 2) -size(tab, 2) -0.6 -0.6], [1 1 1], 'EdgeColor', 'none');
 
         % Best models
-        for i = 1:size(tab, 1)
-            [bestscore1, bestmodel1] = sort(tab(i, :), 'descend');
-            bestscore1 = bestscore1 - bestscore1(1);
-            bestscore1 = find(bestscore1 > -threshold);
-            tab = tab(:,bestmodel1);
-            tabse = tabse(:,bestmodel1);
-            modelstr = modelstr(bestmodel1);
-        end
+%         for i = 1:size(tab, 1)
+%             [bestscore1, bestmodel1] = sort(tab(i, :), 'descend');
+%             bestscore1 = bestscore1 - bestscore1(1);
+%             bestscore1 = find(bestscore1 > -threshold);
+%             tab = tab(:,bestmodel1);
+%             tabse = tabse(:,bestmodel1);
+%             modelstr = modelstr(bestmodel1);
+%         end
                 
         h = barh(-1:-1:-Nk, tab');
         colmap = colormap;
@@ -443,7 +458,10 @@ switch lower(plottype(1:3))
             case 'v'
                 
                 % Add alpha levels of each model to each feature
-                alpha_fac = sum(bsxfun(@times, bms.alpha, factors),2)';
+                fac3(1,:,:) = factors';
+                
+                alpha_fac = squeeze(sum(bsxfun(@times, bms.alpha, fac3),2));
+                if size(alpha_fac,2) == 1; alpha_fac = alpha_fac'; end
                 alpha0_fac = sum(bsxfun(@times, bms.alpha0, factors),2)';
                 
                 nonzero = find(alpha_fac > 0);
@@ -462,28 +480,66 @@ switch lower(plottype(1:3))
                 end
                 
                 lme_fac(isinf(lme_fac)) = -(1/sqrt(eps));
-                
-                % Compute protected exceedance probability for each factor
-                [xp,bor,pxp] = spm_dirichlet_exceedance_fast(alpha_fac, nsamples, lme_fac, g_fac, alpha0_fac);
 
-                 tmp = bsxfun(@minus, lme_fac, max(lme_fac,[],2));
-                 bsxfun(@rdivide, exp(tmp), sum(exp(tmp),2))
+                if options.bmshyper == 0
+                    w_fac = alpha0_fac;
+                else
+                    w_fac = alpha0_fac/mean(alpha0_fac);
+                end
+                
+                % Different methods to assess Bayes Omnibus Risk for factors
+                
+                % Method 1: Compute correct ELBO for variational factorial model
+                % (works only with orthogonal factors)
+                facs = bsxfun(@rdivide,factors,sum(factors,2))/size(factors,1)*sum(w_k);
+                [~,~,~,~,F0] = rbms_fvb(lme,facs,0,1,1);
+                F1 = rbms_FE(lme,bms.alpha,bms.g,w_k,0);
+                bor1 = 1/(1+exp(F1-F0));
+                
+                % Method 2: Use current variational solution, approximate factorial ELBO
+                [fac.xp,bor2] = rbms_exceedance(alpha_fac,lme_fac,g_fac,nsamples,w_fac,options.bmshyper);
+                % Compute moments
+                [fac.exp_r,fac.cov_r] = rbms_rmom(alpha_fac,output.qlnalpha0);
+                              
+                % Method 3: Recompute variational solution                
+%                 priorw_fac = sum(w_k)/size(factors,1)*ones(1,size(factors,1));
+%                 [fac.exp_r,fac.xp,~,output] = rbms(lme_fac,'Method','vb','Nsamp',nsamples,'PriorWeights',priorw_fac,'HyperPrior',0);
+%                 fac.cov_r = output.cov_r;
+%                 bor3 = output.bor;
+                
+                % Assign Bayes Omnibus Risk
+                if any(sum(factors > 0,1) > 1)
+                    fac.bor = bor2; % Non-orthogonal, use approximation
+                else
+                    fac.bor = bor1; % Orthogonal, use correct ELBO
+                end
+                
+                % Compute protected exceedance probabilities for model factors
+                Nf = size(factors,1);
+                ww = sum(bsxfun(@rdivide, factors, sum(factors,1)),2)';
+                % fac.pxp = fac.xp*(1 - fac.bor) + fac.bor/Nk .* ww;
+                fac.pxp = fac.xp*(1 - fac.bor) + fac.bor/Nf;
+                
+                tmp = bsxfun(@minus, lme_fac, max(lme_fac,[],2));
+                bsxfun(@rdivide, exp(tmp), sum(exp(tmp),2))
                 
                 % 'Bayesian' p-value
-                pval = 1 - pxp;
+                pval = 1 - fac.pxp;
                 xrlimit = 1; % x-axis limit
                 
+                sup = [];
                 switch lower(bmsplot)
-                    case 'xp'
-                        tab = xp;
+                    case {'xp','xppost'}
+                        tab = fac.xp;
                         tabse = zeros(size(tab));
-                    case 'pxp'
-                        tab = pxp;
+                    case {'pxp','pxppost'}
+                        tab = fac.pxp;
                         tabse = zeros(size(tab));
                     case 'post'
                         % Compute posterior expected feature frequency and SD
-                        tab = alpha_fac./sum(alpha_fac);
-                        tabse = sqrt(alpha_fac.*(sum(alpha_fac)-alpha_fac)/(sum(alpha_fac)^2*(sum(alpha_fac)+1)));
+                        tab = fac.exp_r;
+                        tabse = sqrt(diag(fac.cov_r))';
+                        sup = fac.pxp;
                 end
                 
                 if factorfixed
@@ -493,7 +549,7 @@ switch lower(plottype(1:3))
                     nonzero = factorfixed;
                 end
                 
-                nonfeatures = (alpha_fac == 0);
+                nonfeatures = (alpha_fac(1,:) == 0);
                 tab(nonfeatures) = []; tabse(nonfeatures) = [];
                 
             case 's' % Sampling                
@@ -531,7 +587,7 @@ switch lower(plottype(1:3))
             otherwise
                 error('Unknown algorithm for Bayesian Model Selection. Use either ''V''ariational inference or ''S''ampling (default ''V'')');
         end
-        
+                
         if horizontalplot
             h = barh(-1:-1:-size(tab, 2), tab');
         else
@@ -581,14 +637,23 @@ switch lower(plottype(1:3))
         % Plot pvalues
         if strcmpi(bmsplot, 'post')
             for k = 1:size(tab, 2)
-                if pval(k) > 0.05 || isnan(pval(k)); continue; end
-                if pval(k) < 0.001; ptext = '***'; elseif pval(k) < 0.01; ptext = '**'; else ptext = '*'; end 
+                %if pval(k) > 0.05 || isnan(pval(k)); continue; end
+                %if pval(k) < 0.001; ptext = '***'; elseif pval(k) < 0.01; ptext = '**'; else ptext = '*'; end 
                 if horizontalplot
                     text(xrlimit*0.9, -k, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);
                 else
-                    text(k, xrlimit*0.95, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);                
+                    %text(k, xrlimit*0.95, ptext, 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', fontsize);                
+                    text(k, xrlimit*1.05, num2str(1-pval(k),'%.2f'), 'HorizontalAlignment', 'Center', 'FontName', 'Arial', 'FontSize', axesfontsize);                
                 end
     %            text(tab(i) + 30, -i, ptext, 'HorizontalAlignment', 'Left', 'FontName', 'Arial', 'FontSize', fontsize);        
+            end
+        end
+        
+        % Plot exp_r
+        if strcmpi(bmsplot,'pxppost') || strcmpi(bmsplot,'xppost')
+            hold on;
+            for k = 1:size(tab, 2)
+                plot([k-0.4,k+0.4],fac.exp_r(k)*[1 1],'k-','LineWidth',1);
             end
         end
 
@@ -608,7 +673,7 @@ switch lower(plottype(1:3))
         if ~isempty(factornames)
             str = [];
             factornames
-            for k = 1:length(nonfeatures)
+            for k = 1:size(nonfeatures,2)
                 if ~nonfeatures(k); str{end+1} = factornames{k}; end
             end
             modelstr = str;

@@ -10,10 +10,12 @@ set(gcf, 'Color', 'w');
 panelgraph = assign(fig, 'panelgraph', 1:length(fig.panels)); 
 intborder = assign(fig, 'intborder', [0.025, 0.1]);
 extborder = assign(fig, 'extborder', [0.1, 0.1]);
-if numel(fig.panels) > 1
-    fig.hg = plotify(panelgraph, 'Gutter', intborder, 'Margins', extborder);
-else
-    fig.hg = [];
+if ~isfield(fig,'hg')
+    if numel(fig.panels) > 1
+        fig.hg = plotify(panelgraph, 'Gutter', intborder, 'Margins', extborder);
+    else
+        fig.hg = [];
+    end
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -70,7 +72,7 @@ end
 
 % Loop over panels
 for iPanel = 1:length(fig.panels)
-    if numel(fig.hg) > 1; axes(fig.hg(iPanel)); end
+    if numel(fig.hg) > 1 || ~isempty(fig.hg(1)); axes(fig.hg(iPanel)); end
     thispanel = fig.panels{iPanel}; % Pointer for external functions
     
     % Loop over data plots inside panel
@@ -99,7 +101,7 @@ for iPanel = 1:length(fig.panels)
                     prepareDataFun = @PrepareDataPlot; 
                 elseif strcmpi(source.type,'model2d')
                     plotfields = {'x','y','z','zerr'};                    
-                    prepareDataFun = @PrepareDataPlot2D; 
+                    prepareDataFun = @PrepareDataPlot2D;
                 end
                 
                 % source.binfunerr1 = '@(y) std(y)'; % SD of fake data    

@@ -25,6 +25,8 @@ function [nLogL,extras] = ModelWork_like(varargin)
 %
 %   See also MODELWORK_SETUPMODEL.
 
+if nargin == 0 && nargout == 0; help ModelWork_like; return; end
+
 % Initialize variables
 project = [];
 mfit = [];
