@@ -61,7 +61,7 @@ for i = 1:numel(modelnames)
         catch; RandStream.setDefaultStream(RandStream.create('mt19937ar','seed',rnseed)); end
         
         fprintf('#%d', mfit{j}.dataid(1));
-        if numel(mfit{j}.dataid > 1); fprintf('(%d)', mfit{j}.dataid(2)); end
+        if numel(mfit{j}.dataid) > 1; fprintf('(%d)', mfit{j}.dataid(2)); end
         fprintf('...');
         
         % Create a number of raw datasets (data matrices)
