@@ -5,79 +5,161 @@
 % vector of process identifiers, in which case the runs are sequential.
 
 % By Luigi Acerbi <luigi.acerbi@gmail.com>
-% Last update: Jan/29/2015
+% Last update: Mar/06/2016
 
-function [recomatrix,err] = ModelWork_modelRecoveryTest(fakedata, mbag)
+function [recomatrix,err] = ModelWork_modelRecoveryTest(fakedata,mbag,metric,modelnames)
+
+if nargin < 3 || isempty(metric); metric = 'aicc'; end
+if nargin < 4 || isempty(modelnames); modelnames = []; end
+
+% Comparison metric sign
+if any(strncmpi(metric,{'aic','bic','dic','wai'},3))
+    signum = -1;
+else
+    signum = 1;
+end
+
+project = mbag.project;
+getModelName = str2func([project '_getModelName']);
+
+% Number of fake datasets per subject
+for i = 1:numel(fakedata)
+    dataid(i) = fakedata{i}.dataid;
+    fakeid(i) = fakedata{i}.fakeid;
+end
+
+Nfaketot = numel(fakedata);
+Nsubjs = max(dataid);
+Nfakeiter = max(fakeid);
 
 % Check fake data and make list of true generative models
 truemodels = fakedata{1}.truemodel;
 mdata{1}{1} = fakedata{1};
 subjtruemodel(1) = 1;
-for i = 2:length(fakedata)
+for i = 2:numel(fakedata)
+    % subjid = (fakedata{i}.dataid-1)*Nfakeiter + fakedata{i}.fakeid;
+    
     index = find(all(bsxfun(@eq, fakedata{i}.truemodel, truemodels), 2));
     if isempty(index)
         truemodels = [truemodels; fakedata{i}.truemodel]; 
         index = size(truemodels, 1); 
-        mdata{index}{1} = fakedata{i};
-        
+        mdata{index}{1} = fakedata{i};        
     else
         mdata{index}{end+1} = fakedata{i};
     end
-    subjtruemodel(fakedata{i}.id) = index;
+    subjtruemodel(i) = index;
 end
 
-% Check model recovery data and make list of used models
+Ntruemodels = size(truemodels,1);
+for i = 1:Ntruemodels
+    truemodelnames{i} = getModelName(truemodels(i,:));
+end
+
+truemodelnames
+if isempty(modelnames); modelnames = truemodelnames; end
+
+% Check model recovery data and make list of fitted models
 models = mbag.bag{1}.model;
-mmfit{1}{mbag.bag{1}.nid} = mbag.bag{1};
-for i = 2:length(mbag.bag)
+subjid = mbag.bag{1}.dataid;
+mmfit{1}{subjid} = mbag.bag{1};
+for i = 2:numel(mbag.bag)
+    subjid = mbag.bag{i}.dataid;    
     index = find(all(bsxfun(@eq, mbag.bag{i}.model, models), 2));
     if isempty(index)
         models = [models; mbag.bag{i}.model]; 
         index = size(models, 1); 
-        mmfit{index}{mbag.bag{i}.nid} = mbag.bag{i};
+        mmfit{index}{subjid} = mbag.bag{i};
     else
-        mmfit{index}{mbag.bag{i}.nid} = mbag.bag{i};
+        mmfit{index}{subjid} = mbag.bag{i};
     end    
 end
 
-% Get all subjects id and conditions
-for i = 1:length(mbag.bag)
-    fakenid(i) = mbag.bag{i}.nid;
-    fakecnd{fakenid(i)} = mbag.bag{i}.cnd; 
-end
-fakenid = sort(unique(fakenid));
+Nfitmodels = size(models,1);
 
-% Should maybe order models as truemodels array, but shall do later
-% ...
+% Get all subjects id and conditions
+%for i = 1:numel(mbag.bag)
+%    fakenid(i) = mbag.bag{i}.nid;
+%    fakecnd{fakenid(i)} = mbag.bag{i}.cnd; 
+%end
+%fakenid = sort(unique(fakenid));
+
+% Order models as truemodels array
+ord = [];
+for i = 1:Ntruemodels
+    idx = find(all(bsxfun(@eq, truemodels(i,:), models), 2),1);
+    if ~isempty(idx); ord = [ord, idx]; end    
+end
+ord = [ord, setdiff(1:Nfitmodels,ord)];
 
 % Build model fit metric for each individual fake subject
-for i = 1:length(fakenid)
-   for j = 1:size(models, 1)
-       nid = fakenid(i);
-       mm = ModelBag_get(mbag, nid, models(j, :), {fakecnd{nid}});
-       score(j, i) = mm.aic;
+score = NaN(Nfitmodels,Nfaketot);
+for j = 1:Nfitmodels       
+    for i = 1:min(Nfaketot,numel(mmfit{ord(j)}))
+       mm = mmfit{ord(j)}{i};
+       if ~isempty(mm)
+            score(j, i) = mm.metrics.(metric);
+       end
    end
 end
 
-% Winning model per subject (minimum score)
-[~,bestmodel] = min(score);
+% Winning model per subject
+[maxscore,bestmodel] = max(signum*score,[],1);
 
 % Create model recovery matrix
-recomatrix = zeros(size(truemodels, 1), size(models, 1));
+recomatrix = zeros(Ntruemodels, Nfitmodels);
+n = zeros(Ntruemodels, Nfitmodels);
 
-for i = 1:length(bestmodel)
-    nid = fakenid(i);
-    recomatrix(subjtruemodel(nid), bestmodel(i)) = recomatrix(subjtruemodel(nid), bestmodel(i)) + 1;    
+for i = 1:numel(bestmodel)
+    if any(isfinite(score(:,i)))
+        recomatrix(subjtruemodel(i), bestmodel(i)) = recomatrix(subjtruemodel(i), bestmodel(i)) + 1;
+%        recomatrix(subjtruemodel(i), bestmodel(i)) = recomatrix(subjtruemodel(i), bestmodel(i)) + maxscore(i);
+        n(subjtruemodel(i), bestmodel(i)) = n(subjtruemodel(i), bestmodel(i)) + 1;
+    end
 end
 recomatrix = bsxfun(@rdivide, recomatrix, sum(recomatrix, 2));
 
 % Parameter recovery error (for matching models only)
-for i = 1:size(truemodels, 1); err{i} = []; end
-for i = 1:length(fakedata)
+for i = 1:Ntruemodels; err{i} = []; end
+for i = 1:Nfaketot
     D = fakedata{i};
+    if isempty(D); continue; end
     model = find(all(bsxfun(@eq, models, D.truemodel), 2));
-    mfit = mmfit{model}{D.id};
-    err{model}(end+1, :) = mfit.maptheta - D.truetheta;
+    mfit = mmfit{model}{D.dataid};
+    if isempty(mfit); continue; end
+    err{model}(end+1, :) = mfit.maptheta - D.trueparams;
 end
+
+% Plot model recovery matrix
+fontsize = 18;
+axesfontsize = 14;
+
+for i = 1:Nfitmodels
+    for j = 1:Ntruemodels
+        p = recomatrix(j,i);        
+        patch([i i i+1 i+1]-0.5, [-j -j-1 -j-1 -j]+0.5, p, 'EdgeColor', 'none');
+        if p < 0.01; continue; end        
+        if p > 0.5; col = [0 0 0]; else col = 0.6*[1 1 1]; end
+        text(i,-j,num2str(p,'%.2f'),'FontSize',axesfontsize,'HorizontalAlignment','center','Color',col);
+    end
+end
+axis([0.5,Ntruemodels+0.5,-Nfitmodels-0.5,-0.5]);
+if Nfitmodels == Ntruemodels; axis square; end
+
+set(gca,'XTick',1:Ntruemodels,'YTick',-Nfitmodels:-1,'FontSize',axesfontsize);
+if ~isempty(modelnames)
+    set(gca,'XTickLabel',modelnames);
+    set(gca,'YTickLabel',modelnames(end:-1:1));
+end
+xticklabel_rotate([],45);
+
+xlabel('Fitted models','FontSize',fontsize);
+ylabel('Generating models','FontSize',fontsize);
+title('Fraction recovered','FontSize',fontsize);
+
+grid off;
+colormap(gray);
+set(gca,'TickDir','out');
+set(gcf,'Color','w');
+
 
 end

@@ -20,24 +20,23 @@ modellist = []; dataidlist = [];    cndlist = [];
 modellen = 0;   dataidlen = 0;      cndlen = 0;
 thetalen = 0;
 
-for i = 1:length(mbag.bag)
+for i = 1:numel(mbag.bag)
     dataid = removetrailzeros(mbag.bag{i}.dataid);
     model = removetrailzeros(mbag.bag{i}.model);
     cnd = removetrailzeros(mbag.bag{i}.cnd);
 
     newmodel = 1;
-    for j = 1:numel(modellist)
+    if ~isempty(modellist)
         if any(cellfun(@(x_) isequal(x_,model),modellist)); newmodel = 0; end
     end
     newdataid = 1;
-    for j = 1:numel(dataidlist)
+    if ~isempty(dataidlist)
         if any(cellfun(@(x_) isequal(x_,dataid),dataidlist)); newdataid = 0; end
     end
     newcnd = 1;
-    for j = 1:numel(cndlist)
+    if ~isempty(cndlist)
         if any(cellfun(@(x_) isequal(x_,cnd),cndlist)); newcnd = 0; end
     end
-    
     if newmodel
         modellist{end+1} = model;
         modellen = max(modellen,numel(model));
