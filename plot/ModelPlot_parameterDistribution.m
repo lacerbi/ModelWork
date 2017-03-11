@@ -47,7 +47,6 @@ for m = 1:Nbags
         modelsummary{m} = ModelWork_summary(mbag{m});
     end
     ssorder = bms{m}.ssorder;
-    exp_r = zeros(1,1,Nmodels);
     g = [];
     pdf{m} = [];
 
@@ -68,7 +67,6 @@ for m = 1:Nbags
         param_idx = find(strcmp(paramname,mfit{1}.mp.params),1);
 
         if isempty(param_idx)
-            exp_r(i) = 0;
             g(:,1,i) = 0;        
         else
             LB = mfit{1}.mp.bounds.LB(param_idx);
@@ -92,23 +90,19 @@ for m = 1:Nbags
             end
 
             % Model posterior frequency
-            exp_r(i) = bms{m}.exp_r(model_idx);
             g(:,1,i) = bms{m}.g(:,model_idx);        
         end
 
     end
 
     % Normalize posteriors
-    exp_r = exp_r / sum(exp_r);
     g = bsxfun(@rdivide, g, sum(g,3));
 
     % Reorder subjects to external order
     g(ssorder,:) = g(1:end,:);
 
     dx = xx(2)-xx(1);
-    subjpdf{m} = sum(bsxfun(@times, ...
-        bsxfun(@times, pdf{m}, g), ...
-        exp_r),3);
+    subjpdf{m} = sum(bsxfun(@times, pdf{m}, g),3);
     subjpdf{m} = bsxfun(@rdivide, subjpdf{m}, qtrapz(subjpdf{m},2) * dx);
 
     postpdf{m} = mean(subjpdf{m},1);
@@ -165,7 +159,7 @@ if Nbags > 1 && nargout > 2
         [pxp,C,P] = cons('pdf',X{:});        
     end
 else
-    C = []; P = [];
+    C = []; P = []; pxp = [];
 end
 
 if plottype
