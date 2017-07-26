@@ -36,7 +36,7 @@ if ischar(jobs)
 end
 
 % Check JOBS format as cell array
-if isstruct(jobs) && length(jobs) > 1; 
+if isstruct(jobs) && length(jobs) > 1
     error('Struct arrays not supported for JOBS. Use cell arrays instead.');
 end
 if ~iscell(jobs); jobs = {jobs}; end

@@ -156,7 +156,8 @@ if Nbags > 1 && nargout > 2
         end
     else        
         for m = 1:Nbags; X{m} = subjpdf{m}; end
-        [pxp,C,P] = cons('pdf',X{:});        
+        [pxp,C] = comprob('pdf',X{:});
+        P = [C, 1-C];
     end
 else
     C = []; P = []; pxp = [];

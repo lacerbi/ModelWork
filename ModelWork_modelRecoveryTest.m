@@ -7,10 +7,12 @@
 % By Luigi Acerbi <luigi.acerbi@gmail.com>
 % Last update: Mar/06/2016
 
-function [recomatrix,err] = ModelWork_modelRecoveryTest(fakedata,mbag,metric,modelnames)
+function [recomatrix,err] = ModelWork_modelRecoveryTest(fakedata,mbag,metric,modelnames,fontsize,axesfontsize)
 
 if nargin < 3 || isempty(metric); metric = 'aicc'; end
 if nargin < 4 || isempty(modelnames); modelnames = []; end
+if nargin < 5 || isempty(fontsize); fontsize = 18; end
+if nargin < 6 || isempty(axesfontsize); axesfontsize = 14; end
 
 % Comparison metric sign
 if any(strncmpi(metric,{'aic','bic','dic','wai'},3))
@@ -130,8 +132,6 @@ for i = 1:Nfaketot
 end
 
 % Plot model recovery matrix
-fontsize = 18;
-axesfontsize = 14;
 
 for i = 1:Nfitmodels
     for j = 1:Ntruemodels
