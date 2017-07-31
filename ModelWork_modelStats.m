@@ -204,11 +204,11 @@ if options.refit
     PLB = mfit.mp.bounds.RLB; PUB = mfit.mp.bounds.RUB;
     optfun = @(x) nllfun(x,mfit.mp,0,0);    
     optoptions.Display = 'off';
-    optoptions.TolX = 1e-6;
+    % optoptions.TolX = 1e-6;
     optoptions.TolFun = 1e-4;
     optoptions.MaxFunEvals = 100*nvars;
     optoptions.MaxIter = 100*nvars;
-    [xbest,fvalbest] = bps(optfun,mfit.maptheta,LB,UB,PLB,PUB,optoptions);    
+    [xbest,fvalbest] = bads(optfun,mfit.maptheta,LB,UB,PLB,PUB,[],optoptions);    
     mfit.maptheta = xbest;
     if mfit.metrics.maploglike > -fvalbest + 0.1
         warning('Re-optimized log likelihood value is substantially worse than the old value.');
