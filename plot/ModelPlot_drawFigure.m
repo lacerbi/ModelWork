@@ -24,8 +24,7 @@ end
 if ~isempty(mfit)
     if isfield(fig,'project'); project = fig.project; else project = fig.prefix; end
     
-    % Fake data generation function and analytics function
-    gendataFun = str2func([project '_gendata']);
+    % Analytics function
     analyticsFun = str2func([project '_analytics']); 
     gendata = []; % Fake data struct
     gendata.datamats = [];
@@ -36,7 +35,7 @@ if ~isempty(mfit)
         gendata = mfit;
     % Passing a single MFIT object, generate a number of fake datasets
     elseif isfield(mfit, 'mp')
-        gendata.datamats{1} = gendataFun(ngen,mfit);
+        gendata.datamats{1} = ModelWork_gendata(project,ngen,mfit);
     % Passing an array of arrays of fake data matrices
     elseif iscell(mfit) && iscell(mfit{1}) && isnumeric(mfit{1}{1})
         gendata.datamats = mfit;        
@@ -45,7 +44,7 @@ if ~isempty(mfit)
         fprintf('Generating subjects'' datasets: ');
         for i = 1:length(mfit)
             fprintf('%d..', i);
-            temp = gendataFun(ngen,mfit{i});
+            temp = ModelWork_gendata(project,ngen,mfit{i});
             if isnumeric(temp{1})
                 gendata.datamats{i} = temp;
                 gendata.data{i} = [];

@@ -4,6 +4,8 @@ function fakedata = ModelWork_generateFakeData(project,mbag,nid,models,cnd,N)
 % Common usage:
 % fakedata = ModelWork_generateFakeData(mbag,modelsummary.nid,modelsummary.models,modelsummary.cnd)
 
+warning('You may want to use MODELWORK_GENDATA.');
+
 setupModelFun = str2func([project '_setupModel']);
 gendataFun = str2func([project '_gendata']);
 analyticsFun = str2func([project '_analytics']);
