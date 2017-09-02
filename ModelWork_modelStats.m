@@ -244,6 +244,22 @@ mfit.metrics.bic = -2 * mfit.metrics.maploglike + k * log(n);
 mfit.metrics.aic = -2 * mfit.metrics.maploglike + k * 2;
 mfit.metrics.aicc = mfit.metrics.aic + 2 * k * (k + 1) / (n - k - 1);
 
+% K-fold cross-validated score
+if isfield(mfit.optimization.output{1},'fold')
+    Nfolds = mfit.X.foldmasks.nfolds;
+    train = mfit.optimization.output{1}.fold.fvals;
+    test = mfit.optimization.output{1}.fold.ftests;
+    for ii = 2:numel(mfit.optimization.output)
+        idx = mfit.optimization.output{ii}.fold.fvals < train;
+        if ~isempty(idx)
+            train(idx) = mfit.optimization.output{ii}.fold.fvals(idx);
+            test(idx) = mfit.optimization.output{ii}.fold.ftests(idx);
+        end
+    end
+    mfit.metrics.cvll = -sum(test(2:Nfolds+1));
+end
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % COMPUTATION OF THE HESSIAN AND MARGINAL LIKELIHOOD (VIA LAPLACE'S METHOD)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

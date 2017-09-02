@@ -56,7 +56,7 @@ optoptions.OptimOptions = {[], localoptions, psoptions, localoptions};
 optoptions.FvalScale = 1;
 optoptions.RescaleVars = 'off';
 optoptions.Method = {'feval',options.optimizationmethod,'patternsearch',options.optimizationmethod};
-optoptions.BPSUseCacheEpochs = 2;
+optoptions.BPSUseCacheEpochs = 0;
 
 % Save information
 optfilename = [options.fullfilename(1:end-4) '_opt.tmp'];
@@ -68,10 +68,39 @@ optoptions.SaveTime = (0.9 + 0.2*rand())*options.savetime;
 optoptions.OutputFcn = @(x,optimValues,state) outputFcn(x,optimValues,state,fout,options.modelstring,options.dataidstring,options.cnd,options.replica,firstSetting);
 vararginarray = {{'coarse',logpriorflag},{'normal',logpriorflag},{'normal',logpriorflag},{'precise',logpriorflag}};
 
-% Run multi-start optimization
-[~,~,exitflag,output] = fminmulti(@nLogPosterior,LB,UB,nstarts,optoptions,vararginarray);
+% Get trial masks if present
+trainmask = [];
+testmask = [];
+if isfield(mfit.X,'foldmasks') && ~isempty(mfit.X.foldmasks) && isfield(mfit.X.foldmasks,'train')
+    trainmask = mfit.X.foldmasks.train;
+    % Add prior to training set
+    if logpriorflag; trainmask = [trainmask, ones(size(trainmask,1),1)]; end
+end
+if isfield(mfit.X,'foldmasks') && ~isempty(mfit.X.foldmasks) && isfield(mfit.X.foldmasks,'test')
+    testmask = mfit.X.foldmasks.test;
+    % Exclude prior from test set
+    if ~isempty(testmask) && logpriorflag; testmask = [testmask, zeros(size(testmask,1),1)]; end
+end
 
-output.funccount = sum(output.funcalls);
+if ~isempty(trainmask)
+    fminfoldfun([],@(theta,precision,logpriorflag) nLogPosterior(theta,precision,logpriorflag,0),trainmask,testmask,1);
+    optfun = @fminfoldfun;
+else
+    optfun = @(theta,precision,logpriorflag) nLogPosterior(theta,precision,logpriorflag,1);
+end
+
+% Run multi-start optimization
+[~,~,exitflag,output] = fminmulti(optfun,LB,UB,nstarts,optoptions,vararginarray);    
+
+if ~isempty(trainmask)
+    tolfun = 0.1;
+    optimizer = @(fun,x0) bads(fun,x0,LB,UB,RLB,RUB);    
+    [fold.xs,fold.fvals,fold.ftests,fold.exitflag,fold.output] = fminfoldrun(optimizer,[],tolfun,'precise',logpriorflag);
+    output.funccount = sum(fold.output.funcCount);    
+else
+    output.funccount = sum(output.funcalls);    
+end
+
 
 % Remove coarsely evaluated points
 idx = 1:nstarts(1);
@@ -85,16 +114,33 @@ output.exitflag(idx) = [];
 % Keep best result with maximum precision (last of array)    
 output.xmin = output.x(end,:);
 output.fvalmin = output.fval(end);
+
+% See if there is a better minimum for the full fold
+if ~isempty(trainmask)
+    idx_full = find(all(trainmask,2),1);
+    if ~isempty(idx_full)
+        if fold.fvals(idx_full) < output.fvalmin
+            output.fvalmin = fold.fvals(idx_full);
+            output.xmin = fold.xs(idx_full,:);
+        end
+    end
+    output.fold = fold;
+else
+    output.fold = [];
+end
+
 x = output.xmin;
 fval = output.fvalmin;
 output = rmfield(output,'output');  % Save some memory
 
     %----------------------------------------------------------------------
-    function nLL = nLogPosterior(theta,precision,logpriorflag)
+    function nLL = nLogPosterior(theta,precision,logpriorflag,sumflag)
     % NLOGPOSTERIOR Negative (unnormalized) log posterior of the parameters
         
         %if nargin < 2; precision = []; end
         %if nargin < 3; logpriorflag = []; end
+        
+        if nargin < 4 || isempty(sumflag); sumflag = true; end
         
         INFPENALTY = -log(1e-6);
 
@@ -122,7 +168,12 @@ output = rmfield(output,'output');  % Save some memory
         else
             logPrior = 0;
         end
-        nLL = -sum(loglike) - logPrior;
+        
+        if sumflag
+            nLL = -sum(loglike) - logPrior;
+        else
+            nLL = [-extras.trialloglikes(:)', -logPrior];
+        end
     end
 end
 
