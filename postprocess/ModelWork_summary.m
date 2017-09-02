@@ -132,7 +132,7 @@ end
 % Create empty model metrics tables
 modelsummary.nparams = NaN(1,nmodels);
 modelsummary.ndata = NaN(ndata,1);
-metrics = {'aic','aicc','bic','dic','waic1','waic2','loocv','maploglike','marginallike','marginallike_rlr','marginallike_whmg','marginallike_whmu'};
+metrics = {'aic','aicc','bic','cvll','dic','waic1','waic2','loocv','maploglike','marginallike','marginallike_rlr','marginallike_whmg','marginallike_whmu'};
 for mcm = metrics
     modelsummary.(mcm{:}) = NaN(ndata,nmodels,ncnd);
 end
